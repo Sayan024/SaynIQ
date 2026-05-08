@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TextInput, TouchableOpacity, 
-  KeyboardAvoidingView, Platform, ScrollView, Alert
+  KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { addPassword, updatePassword, getPasswordValue } from '../services/passwordService';
+import { THEME } from '../styles/theme';
 
 export default function AddPasswordScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
@@ -54,24 +55,25 @@ export default function AddPasswordScreen({ navigation, route }) {
   return (
     <KeyboardAvoidingView 
       style={{ flex: 1 }} 
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#F8FAFC" />
+            <Ionicons name="close" size={26} color={THEME.colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{passwordToEdit ? 'Edit Password' : 'Add Password'}</Text>
-          <View style={{ width: 24 }} />
+          <Text style={styles.headerTitle}>{passwordToEdit ? 'Edit Vault' : 'New Password'}</Text>
+          <View style={{ width: 44 }} />
         </View>
 
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Title <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>Service Name <Text style={styles.required}>*</Text></Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., Gmail, Facebook"
-              placeholderTextColor="#64748B"
+              placeholder="e.g., Google, Netflix, Bank..."
+              placeholderTextColor={THEME.colors.textSecondary}
               value={title}
               onChangeText={setTitle}
             />
@@ -81,8 +83,8 @@ export default function AddPasswordScreen({ navigation, route }) {
             <Text style={styles.label}>Username / Email</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g., john.doe@example.com"
-              placeholderTextColor="#64748B"
+              placeholder="e.g., sayan@example.com"
+              placeholderTextColor={THEME.colors.textSecondary}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -91,12 +93,12 @@ export default function AddPasswordScreen({ navigation, route }) {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Password <Text style={styles.required}>*</Text></Text>
+            <Text style={styles.label}>Secure Password <Text style={styles.required}>*</Text></Text>
             <View style={styles.passwordContainer}>
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Enter password securely"
-                placeholderTextColor="#64748B"
+                placeholderTextColor={THEME.colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -106,78 +108,94 @@ export default function AddPasswordScreen({ navigation, route }) {
                 onPress={() => setShowPassword(!showPassword)} 
                 style={styles.eyeBtn}
               >
-                <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={22} color="#94A3B8" />
+                <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color={THEME.colors.textSecondary} />
               </TouchableOpacity>
             </View>
           </View>
 
-          <TouchableOpacity 
-            style={[styles.saveBtn, loading && styles.saveBtnDisabled]} 
-            onPress={handleSave}
-            disabled={loading}
-          >
-            <Text style={styles.saveBtnText}>{passwordToEdit ? 'Update Password' : 'Save Password'}</Text>
-          </TouchableOpacity>
+          <View style={{ height: 40 }} />
         </ScrollView>
+
+        <View style={styles.footer}>
+          <TouchableOpacity 
+            style={[styles.saveBtn, (!title.trim() || !password.trim()) && styles.saveBtnDisabled]} 
+            onPress={handleSave}
+            disabled={loading || !title.trim() || !password.trim()}
+          >
+            {loading ? (
+              <ActivityIndicator color={THEME.colors.background} />
+            ) : (
+              <Text style={styles.saveBtnText}>{passwordToEdit ? 'Update Vault Entry' : 'Secure This Password'}</Text>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0F19' },
+  container: { flex: 1, backgroundColor: THEME.colors.background },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: THEME.spacing.lg,
     marginBottom: 20,
     marginTop: 10,
   },
-  backBtn: { padding: 4 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#F8FAFC' },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: THEME.colors.cardSecondary, justifyContent: 'center', alignItems: 'center' },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: THEME.colors.textPrimary },
+  
+  scrollContent: { paddingHorizontal: THEME.spacing.lg, paddingBottom: 40 },
+  
   formGroup: { marginBottom: 24 },
-  label: { color: '#E2E8F0', fontSize: 16, fontWeight: '600', marginBottom: 8 },
-  required: { color: '#EF4444' },
+  label: { color: THEME.colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 12, marginLeft: 4 },
+  required: { color: THEME.colors.danger },
+  
   input: {
-    backgroundColor: '#151C2C',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1,
-    borderColor: '#1E293B',
-    borderRadius: 12,
-    color: '#F8FAFC',
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.borderRadius.lg,
+    color: THEME.colors.textPrimary,
     fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
   },
+  
   passwordContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#151C2C',
+    backgroundColor: THEME.colors.card,
     borderWidth: 1,
-    borderColor: '#1E293B',
-    borderRadius: 12,
+    borderColor: THEME.colors.border,
+    borderRadius: THEME.borderRadius.lg,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
   },
   passwordInput: {
     flex: 1,
-    color: '#F8FAFC',
+    color: THEME.colors.textPrimary,
     fontSize: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
-  eyeBtn: { padding: 14 },
+  eyeBtn: { padding: 20 },
+  
+  footer: { padding: THEME.spacing.lg, backgroundColor: THEME.colors.background, borderTopWidth: 1, borderTopColor: THEME.colors.border },
+  
   saveBtn: {
-    backgroundColor: '#10B981', // Emerald for passwords
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: THEME.colors.warning, // Warning/Amber feels secure for passwords or we can use Primary Lime
+    borderRadius: THEME.borderRadius.xl,
+    paddingVertical: 18,
     alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#10B981',
+    shadowColor: THEME.colors.warning,
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  saveBtnDisabled: { opacity: 0.7 },
-  saveBtnText: { color: '#FFFFFF', fontSize: 18, fontWeight: '700' },
+  saveBtnDisabled: { opacity: 0.5, shadowOpacity: 0, elevation: 0 },
+  saveBtnText: { color: THEME.colors.textDark, fontSize: 18, fontWeight: '800' },
 });

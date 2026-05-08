@@ -3,8 +3,14 @@ import { View, Text, TextInput, StyleSheet, TouchableOpacity, ActivityIndicator,
 import { VaultContext } from '../context/VaultContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { generateAutoTitle, generateSmartTags } from '../services/geminiService';
+import { THEME } from '../styles/theme';
 
-const CATEGORIES = ['General', 'Study', 'Learning', 'Inspiration', 'Projects'];
+const CATEGORIES = [
+  'Study', 'Coding', 'SQL', 'Python', 'Power BI', 'Microsoft Fabric', 'AI', 
+  'Productivity', 'Business', 'Finance', 'Motivation', 'Editing', 'YouTube', 
+  'Instagram', 'Career', 'Interview Prep', 'Personal', 'Research', 'Important', 'Bookmarks'
+];
 
 export default function AddItemScreen({ navigation, route }) {
   const { addItem, editItem } = useContext(VaultContext);
@@ -15,22 +21,23 @@ export default function AddItemScreen({ navigation, route }) {
 
   const [type, setType] = useState('note');
   const [content, setContent] = useState('');
-  const [category, setCategory] = useState('General');
+  const [category, setCategory] = useState('Study');
+  const [categorySearch, setCategorySearch] = useState('');
   
   // New Fields
   const [customTitle, setCustomTitle] = useState('');
   const [noteType, setNoteType] = useState('plain'); // 'plain' | 'code'
   
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingText, setLoadingText] = useState('');
 
   useEffect(() => {
     if (isEditing) {
       setType(itemToEdit.type);
       setContent(itemToEdit.type === 'note' ? itemToEdit.text : itemToEdit.url);
-      setCategory(itemToEdit.category || 'General');
+      setCategory(itemToEdit.category || 'Study');
       
       if (itemToEdit.type === 'link') {
-        // If it had a custom title or overriding title, we populate it
         setCustomTitle(itemToEdit.title || '');
       } else {
         setNoteType(itemToEdit.noteType || 'plain');
@@ -38,9 +45,12 @@ export default function AddItemScreen({ navigation, route }) {
     }
   }, [isEditing, itemToEdit]);
 
+  const filteredCategories = CATEGORIES.filter(c => c.toLowerCase().includes(categorySearch.toLowerCase()));
+
   const handleSave = async () => {
     if (!content.trim()) return;
     setIsLoading(true);
+    setLoadingText('Saving...');
     
     const payload = {
       type,
@@ -52,12 +62,29 @@ export default function AddItemScreen({ navigation, route }) {
       payload.customTitle = customTitle;
     } else {
       payload.noteType = noteType;
+      // Auto generate title for notes
+      setLoadingText('AI generating title...');
+      try {
+        const generatedTitle = await generateAutoTitle(content);
+        payload.title = generatedTitle;
+      } catch(e) {
+        payload.title = content.substring(0, 30) + '...';
+      }
     }
 
+    setLoadingText('AI analyzing tags...');
+    try {
+      const generatedTags = await generateSmartTags(content);
+      payload.tags = generatedTags || [];
+    } catch(e) {
+      payload.tags = [];
+    }
+
+    setLoadingText('Finalizing...');
     if (isEditing) {
       await editItem(itemToEdit.id, payload);
     } else {
-      await addItem({ ...payload, tags: [] });
+      await addItem(payload);
     }
     
     setIsLoading(false);
@@ -68,32 +95,43 @@ export default function AddItemScreen({ navigation, route }) {
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="close" size={28} color="#94A3B8" />
+          <Ionicons name="close" size={26} color={THEME.colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.title}>{isEditing ? 'Edit Entry' : 'New Entry'}</Text>
-        <View style={{ width: 28 }} />
+        <Text style={styles.title}>{isEditing ? 'Edit Item' : 'Add to Vault'}</Text>
+        <View style={{ width: 40 }} />
       </View>
       
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {!isEditing && (
           <View style={styles.toggleRow}>
             <TouchableOpacity onPress={() => setType('note')} style={[styles.toggleBtn, type === 'note' && styles.activeToggleBtn]}>
-              <Ionicons name="document-text" size={18} color={type === 'note' ? '#fff' : '#64748B'} style={{marginRight: 6}} />
+              <Ionicons name="document-text" size={18} color={type === 'note' ? THEME.colors.textDark : THEME.colors.textSecondary} style={{marginRight: 8}} />
               <Text style={[styles.toggleText, type === 'note' && styles.activeToggleText]}>Note</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setType('link')} style={[styles.toggleBtn, type === 'link' && styles.activeToggleBtn]}>
-              <Ionicons name="link" size={18} color={type === 'link' ? '#fff' : '#64748B'} style={{marginRight: 6}} />
+              <Ionicons name="link" size={18} color={type === 'link' ? THEME.colors.textDark : THEME.colors.textSecondary} style={{marginRight: 8}} />
               <Text style={[styles.toggleText, type === 'link' && styles.activeToggleText]}>Link</Text>
             </TouchableOpacity>
           </View>
         )}
 
         <Text style={styles.label}>Select Category</Text>
+        <View style={styles.categorySearchContainer}>
+          <Ionicons name="search" size={18} color={THEME.colors.textSecondary} style={{marginRight: 8}} />
+          <TextInput 
+            style={styles.categorySearchInput}
+            placeholder="Search categories..."
+            placeholderTextColor={THEME.colors.textSecondary}
+            value={categorySearch}
+            onChangeText={setCategorySearch}
+          />
+        </View>
+        
         <View style={styles.categoryContainer}>
           <FlatList
             horizontal
             showsHorizontalScrollIndicator={false}
-            data={CATEGORIES}
+            data={filteredCategories}
             keyExtractor={(item) => item}
             renderItem={({ item }) => (
               <TouchableOpacity onPress={() => setCategory(item)}>
@@ -105,19 +143,20 @@ export default function AddItemScreen({ navigation, route }) {
                 </Text>
               </TouchableOpacity>
             )}
+            ListEmptyComponent={<Text style={{color: THEME.colors.textSecondary, marginLeft: 4}}>No categories found.</Text>}
           />
         </View>
 
         {type === 'note' && (
           <>
             <Text style={styles.label}>Note Type</Text>
-            <View style={[styles.toggleRow, { marginBottom: 16 }]}>
+            <View style={[styles.toggleRow, { marginBottom: 24 }]}>
               <TouchableOpacity onPress={() => setNoteType('plain')} style={[styles.toggleBtn, noteType === 'plain' && styles.activeToggleBtn]}>
-                <Ionicons name="text-outline" size={18} color={noteType === 'plain' ? '#fff' : '#64748B'} style={{marginRight: 6}} />
+                <Ionicons name="text-outline" size={18} color={noteType === 'plain' ? THEME.colors.textDark : THEME.colors.textSecondary} style={{marginRight: 8}} />
                 <Text style={[styles.toggleText, noteType === 'plain' && styles.activeToggleText]}>Plain Text</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setNoteType('code')} style={[styles.toggleBtn, noteType === 'code' && styles.activeToggleBtn]}>
-                <Ionicons name="code-slash" size={18} color={noteType === 'code' ? '#fff' : '#64748B'} style={{marginRight: 6}} />
+                <Ionicons name="code-slash" size={18} color={noteType === 'code' ? THEME.colors.textDark : THEME.colors.textSecondary} style={{marginRight: 8}} />
                 <Text style={[styles.toggleText, noteType === 'code' && styles.activeToggleText]}>Code Snippet</Text>
               </TouchableOpacity>
             </View>
@@ -129,8 +168,8 @@ export default function AddItemScreen({ navigation, route }) {
             <Text style={styles.label}>Custom Title (Optional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Override fetched YouTube/Web title"
-              placeholderTextColor="#475569"
+              placeholder="Override auto-fetched title..."
+              placeholderTextColor={THEME.colors.textSecondary}
               value={customTitle}
               onChangeText={setCustomTitle}
             />
@@ -144,8 +183,8 @@ export default function AddItemScreen({ navigation, route }) {
             type === 'note' && styles.noteInput,
             noteType === 'code' && type === 'note' && styles.codeField
           ]}
-          placeholder={type === 'note' ? (noteType === 'code' ? "// Paste your code here..." : "Write your thoughts here...") : "https://youtube.com/..."}
-          placeholderTextColor="#475569"
+          placeholder={type === 'note' ? (noteType === 'code' ? "// Paste your code here..." : "Start typing your thoughts...") : "https://youtube.com/..."}
+          placeholderTextColor={THEME.colors.textSecondary}
           multiline={type === 'note'}
           value={content}
           onChangeText={setContent}
@@ -153,42 +192,79 @@ export default function AddItemScreen({ navigation, route }) {
           autoCorrect={type === 'note' && noteType === 'plain'}
         />
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 60 }} />
       </ScrollView>
 
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={isLoading}>
-        {isLoading ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.saveBtnText}>{isEditing ? 'Update Entry' : 'Save to Vault'}</Text>}
-      </TouchableOpacity>
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={isLoading || !content.trim()}>
+          {isLoading ? (
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+              <ActivityIndicator color={THEME.colors.textDark} style={{marginRight: 10}} />
+              <Text style={styles.saveBtnText}>{loadingText}</Text>
+            </View>
+          ) : (
+            <Text style={styles.saveBtnText}>{isEditing ? 'Update Item' : 'Save Item'}</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0F19', padding: 20, paddingBottom: 0 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backBtn: { padding: 5, backgroundColor: '#151C2C', borderRadius: 12 },
-  title: { fontSize: 22, fontWeight: '700', color: '#F8FAFC' },
-  toggleRow: { flexDirection: 'row', backgroundColor: '#151C2C', borderRadius: 14, padding: 6, marginBottom: 24, borderWidth: 1, borderColor: '#1E293B' },
-  toggleBtn: { flex: 1, padding: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
-  activeToggleBtn: { backgroundColor: '#6366F1', shadowColor: '#6366F1', shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
-  toggleText: { color: '#64748B', fontWeight: '600', fontSize: 14 },
-  activeToggleText: { color: '#FFFFFF' },
-  label: { color: '#94A3B8', fontSize: 14, fontWeight: '600', marginBottom: 12 },
-  categoryContainer: { marginBottom: 24 },
+  container: { flex: 1, backgroundColor: THEME.colors.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: THEME.spacing.lg, marginBottom: 20, marginTop: 10 },
+  backBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: THEME.colors.cardSecondary, justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 24, fontWeight: '800', color: THEME.colors.textPrimary },
+  scrollContent: { paddingHorizontal: THEME.spacing.lg },
+  
+  toggleRow: { flexDirection: 'row', backgroundColor: THEME.colors.card, borderRadius: THEME.borderRadius.xl, padding: 6, marginBottom: 24, borderWidth: 1, borderColor: THEME.colors.border },
+  toggleBtn: { flex: 1, padding: 14, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', borderRadius: THEME.borderRadius.lg },
+  activeToggleBtn: { backgroundColor: THEME.colors.primary, shadowColor: THEME.colors.primary, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
+  toggleText: { color: THEME.colors.textSecondary, fontWeight: '700', fontSize: 15 },
+  activeToggleText: { color: THEME.colors.textDark },
+  
+  label: { color: THEME.colors.textPrimary, fontSize: 16, fontWeight: '700', marginBottom: 12, marginLeft: 4 },
+  
+  categorySearchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME.colors.card, borderRadius: THEME.borderRadius.md, paddingHorizontal: 16, marginBottom: 12, height: 48, borderWidth: 1, borderColor: THEME.colors.border },
+  categorySearchInput: { flex: 1, color: THEME.colors.textPrimary, fontSize: 15, fontWeight: '500' },
+  
+  categoryContainer: { marginBottom: 30 },
   categoryPill: { 
-    color: '#94A3B8', paddingHorizontal: 18, paddingVertical: 10, borderRadius: 20, 
-    backgroundColor: '#151C2C', marginRight: 10, borderWidth: 1, borderColor: '#1E293B',
-    overflow: 'hidden', fontWeight: '500'
+    color: THEME.colors.textSecondary, 
+    paddingHorizontal: 18, 
+    paddingVertical: 10, 
+    borderRadius: THEME.borderRadius.xl, 
+    backgroundColor: THEME.colors.card, 
+    marginRight: 10, 
+    borderWidth: 1, 
+    borderColor: THEME.colors.border,
+    overflow: 'hidden', 
+    fontWeight: '600',
+    fontSize: 14
   },
-  activeCategoryPill: { color: '#FFFFFF', backgroundColor: '#6366F1', borderColor: '#6366F1', fontWeight: '700' },
-  input: { backgroundColor: '#151C2C', color: '#F8FAFC', borderRadius: 16, padding: 18, fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: '#1E293B' },
-  noteInput: { height: 180, textAlignVertical: 'top' },
+  activeCategoryPill: { color: THEME.colors.textPrimary, backgroundColor: THEME.colors.cardSecondary, borderColor: THEME.colors.highlight, fontWeight: '800' },
+  
+  input: { 
+    backgroundColor: THEME.colors.card, 
+    color: THEME.colors.textPrimary, 
+    borderRadius: THEME.borderRadius.lg, 
+    padding: 20, 
+    fontSize: 16, 
+    marginBottom: 20, 
+    borderWidth: 1, 
+    borderColor: THEME.colors.border,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
+  },
+  noteInput: { height: 200, textAlignVertical: 'top' },
   codeField: {
-    backgroundColor: '#0F172A',
-    borderColor: '#334155',
+    backgroundColor: THEME.colors.background,
+    borderColor: THEME.colors.border,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#38BDF8',
+    color: THEME.colors.primary,
   },
-  saveBtn: { backgroundColor: '#6366F1', padding: 18, borderRadius: 16, alignItems: 'center', marginBottom: 20, shadowColor: '#6366F1', shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 },
-  saveBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 18 }
+  
+  footer: { padding: THEME.spacing.lg, backgroundColor: THEME.colors.background, borderTopWidth: 1, borderTopColor: THEME.colors.border },
+  saveBtn: { backgroundColor: THEME.colors.primary, paddingVertical: 18, borderRadius: THEME.borderRadius.xl, alignItems: 'center', shadowColor: THEME.colors.primary, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  saveBtnText: { color: THEME.colors.textDark, fontWeight: '800', fontSize: 18 }
 });
