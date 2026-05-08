@@ -93,8 +93,48 @@ export const generateAutoTitle = async (content) => {
 };
 
 /**
+ * Generate an intelligent summary for a Link/Video based on its URL and Metadata.
+ */
+export const generateLinkSummary = async (url, customTitle) => {
+  if (!ENV.GEMINI_API_KEY) return "AI Summary unavailable.";
+
+  const isVideo = url.includes('youtube.com') || url.includes('youtu.be');
+  const typeText = isVideo ? 'YouTube Video' : 'Website/Article';
+  const titleText = customTitle ? `Title: ${customTitle}` : '';
+
+  const prompt = `
+You are a highly intelligent study assistant. Your user saved a ${typeText} to their knowledge vault.
+URL: ${url}
+${titleText}
+
+Since you cannot browse the live internet directly, please use the URL structure, domain name, and any provided title to infer what this resource is about. Draw upon your vast knowledge base to generate a comprehensive, highly-structured study summary for this topic.
+
+Format your response exactly as follows (use Markdown):
+**Quick Summary**
+(2-3 sentences summarizing the inferred topic)
+
+**Key Concepts**
+- (Bullet point 1)
+- (Bullet point 2)
+
+**Learning Points**
+- (What the user will likely learn from this)
+
+**Action Items**
+- (Suggested next steps or practice exercises)
+`;
+
+  try {
+    const result = await executeFastFallback(prompt);
+    return result.response.text();
+  } catch (error) {
+    console.error("Link Summary Gen Failed:", error);
+    return "Summary generation failed. The AI might need more context about this link to generate a summary.";
+  }
+};
+
+/**
  * Basic Keyword/Tag-based Retrieval System.
- * Scores notes based on how many words from the query appear in the note's text, title, or tags.
  */
 const retrieveRelevantNotes = (query, items, topK = 5) => {
   if (!query || !items || items.length === 0) return [];
@@ -112,22 +152,17 @@ const retrieveRelevantNotes = (query, items, topK = 5) => {
     ].join(' ').toLowerCase();
 
     queryTokens.forEach(token => {
-      // Very basic substring match count
       const matches = searchableText.split(token).length - 1;
       score += matches;
     });
 
-    // Add slight bias to recent items
     const recencyBonus = item.createdAt ? new Date(item.createdAt).getTime() / 10000000000 : 0;
-    
     return { ...item, _relevanceScore: score + recencyBonus };
   });
 
-  // Sort by score descending and filter out zero-score items (unless we have very few items)
   const sorted = scoredItems.sort((a, b) => b._relevanceScore - a._relevanceScore);
   const relevant = sorted.filter(item => item._relevanceScore > 0).slice(0, topK);
   
-  // Fallback to latest 3 items if no relevance found but user has items
   if (relevant.length === 0 && sorted.length > 0) {
     return sorted.slice(0, 3);
   }
@@ -139,10 +174,8 @@ export const chatWithNotes = async (question, contextItems) => {
   if (!ENV.GEMINI_API_KEY) throw new Error("API key missing");
 
   try {
-    // 1. Retrieve only relevant notes to stay within context limits and improve focus
     const relevantItems = retrieveRelevantNotes(question, contextItems);
     
-    // 2. Format context
     const contextText = relevantItems.map(item => {
       let text = `[ID: ${item.id}] [Category: ${item.category || 'N/A'}] [Title: ${item.title || 'Untitled'}]\n`;
       if (item.type === 'note') text += `Content: ${item.text}\n`;
@@ -151,7 +184,6 @@ export const chatWithNotes = async (question, contextItems) => {
       return text;
     }).join("\n---\n");
 
-    // 3. System Prompt Engineering
     const prompt = `You are a premium AI Study Assistant.
 Your primary job is to answer the user's question using the CONTEXT provided below, which contains their personal saved notes, links, and study materials.
     

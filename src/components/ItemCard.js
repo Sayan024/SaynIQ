@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { VaultContext } from '../context/VaultContext';
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
-import { generateSummary } from '../services/geminiService';
+import { generateSummary, generateLinkSummary } from '../services/geminiService';
 import Markdown from 'react-native-markdown-display';
 import Animated, { FadeIn, FadeOut, Layout } from 'react-native-reanimated';
 import { THEME } from '../styles/theme';
@@ -38,8 +38,12 @@ export default function ItemCard({ item }) {
     setIsGeneratingSummary(true);
     setIsSummaryExpanded(true);
     try {
-      const content = item.type === 'note' ? item.text : item.url;
-      const aiSummary = await generateSummary(content);
+      let aiSummary;
+      if (item.type === 'note') {
+        aiSummary = await generateSummary(item.text);
+      } else {
+        aiSummary = await generateLinkSummary(item.url, item.title);
+      }
       await editItem(item.id, { summary: aiSummary });
     } catch (error) {
       Alert.alert("Error", "Could not generate summary.");
