@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "SaynIQ",
-    "slug": "smart-study-vault",
+    "slug": "SaynIQ-App",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
