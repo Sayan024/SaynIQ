@@ -4,8 +4,8 @@ This branch contains the source code for the **SaynIQ Mobile Application**.
 
 ## 🚀 Branch Structure
 
-- **`main`**: SaynIQ Website
-- **`sayniq-app`**: SaynIQ Mobile App (Current Branch)
+- **`Website`**: SaynIQ Website
+- **`SaynIQ-App`**: SaynIQ Mobile App (Current Branch)
 
 ---
 
@@ -14,7 +14,7 @@ This branch contains the source code for the **SaynIQ Mobile Application**.
 The mobile app is built with **React Native (Expo)**.
 
 ### Setup Steps:
-1. Clone the repository and switch to the `sayniq-app` branch.
+1. Clone the repository and switch to the **`SaynIQ-App`** branch.
 2. Install dependencies:
    ```bash
    npm install
@@ -32,10 +32,10 @@ The mobile app is built with **React Native (Expo)**.
 
 ## 💻 Switching to Website
 
-To access the marketing website source code, switch to the `main` branch:
+To access the marketing website source code, switch to the **`Website`** branch:
 
 ```bash
-git checkout main
+git checkout Website
 ```
 
 ---
