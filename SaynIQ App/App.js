@@ -10,9 +10,15 @@ import { VaultProvider, VaultContext } from './src/context/VaultContext';
 import LoadingScreen from './src/screens/LoadingScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 
+import ImportModal from './src/components/ImportModal';
+
 function AppContent() {
-  const { state, addItem } = useContext(VaultContext);
+  const { state, addItem, theme } = useContext(VaultContext);
   const [showOnboarding, setShowOnboarding] = useState(null);
+  
+  // Share/Import State
+  const [importVisible, setImportVisible] = useState(false);
+  const [sharedItem, setSharedItem] = useState(null);
 
   useEffect(() => {
     AsyncStorage.getItem('@onboarding_completed').then(value => {
@@ -26,27 +32,15 @@ function AppContent() {
       if (!url) return;
       const { path, queryParams } = Linking.parse(url);
       
-      if ((path === 'import' || path === 'share') && queryParams?.data) {
+      if ((path === 'import' || path === 'share' || url.includes('/share')) && queryParams?.data) {
         try {
-          // Decode Base64
+          // Decode Base64 safely
           const decodedData = decodeURIComponent(escape(_atob(queryParams.data)));
           const itemData = JSON.parse(decodedData);
           
           if (itemData && (itemData.text || itemData.url)) {
-            Alert.alert(
-              "Import Shared Content",
-              `Would you like to import "${itemData.title || 'Untitled'}" into your Knowledge Hub?`,
-              [
-                { text: "Cancel", style: "cancel" },
-                { 
-                  text: "Import", 
-                  onPress: async () => {
-                    await addItem(itemData);
-                    Alert.alert("Success", "Content imported successfully! ✨");
-                  } 
-                }
-              ]
-            );
+            setSharedItem(itemData);
+            setImportVisible(true);
           }
         } catch (error) {
           console.error("Deep Link Parse Error:", error);
@@ -62,7 +56,27 @@ function AppContent() {
     const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
     
     return () => subscription.remove();
-  }, [addItem]);
+  }, [_atob]); // Keep _atob as dependency or empty if it's stable
+
+  const handleConfirmImport = async () => {
+    if (sharedItem) {
+      // Duplicate detection
+      const isDuplicate = state.items.some(i => 
+        (i.url && i.url === sharedItem.url) || 
+        (i.text && i.text === sharedItem.text && i.title === sharedItem.title)
+      );
+
+      if (isDuplicate) {
+        Alert.alert("Already Saved", "This content is already in your Knowledge Hub.");
+      } else {
+        await addItem(sharedItem);
+        // Toast or simple success alert
+        Alert.alert("Success", "✨ Content saved to your Knowledge Hub!");
+      }
+    }
+    setImportVisible(false);
+    setSharedItem(null);
+  };
   
   if (state.loading || showOnboarding === null) {
     return <LoadingScreen />;
@@ -72,7 +86,18 @@ function AppContent() {
     return <OnboardingScreen onFinish={() => setShowOnboarding(false)} />;
   }
   
-  return <AppNavigator />;
+  return (
+    <>
+      <AppNavigator />
+      <ImportModal 
+        visible={importVisible}
+        item={sharedItem}
+        theme={theme}
+        onClose={() => setImportVisible(false)}
+        onImport={handleConfirmImport}
+      />
+    </>
+  );
 }
 
 
