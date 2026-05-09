@@ -8,6 +8,8 @@ import {
   saveTasks, saveTimeLogs, calculateProductivityStreak 
 } from '../services/taskService';
 import TaskCard from '../components/TaskCard';
+import TaskInsights from '../components/TaskInsights';
+import FocusModeModal from '../components/FocusModeModal';
 
 const { width } = Dimensions.get('window');
 
@@ -18,6 +20,9 @@ export default function TasksScreen({ navigation }) {
   
   const [activeTab, setActiveTab] = useState('Pending');
   const [activeTimerId, setActiveTimerId] = useState(null);
+  const [focusModeVisible, setFocusModeVisible] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('Priority'); // Priority, Newest, Deadline
 
   // Stats calculation
   const stats = useMemo(() => {
@@ -38,7 +43,19 @@ export default function TasksScreen({ navigation }) {
     };
   }, [state.tasks, state.timeLogs]);
 
-  const filteredTasks = (state.tasks || []).filter(t => t.status === activeTab);
+  const filteredTasks = useMemo(() => {
+    let list = (state.tasks || []).filter(t => t.status === activeTab);
+    
+    // Sort
+    if (sortBy === 'Priority') {
+      const pMap = { High: 3, Medium: 2, Low: 1 };
+      list.sort((a, b) => pMap[b.priority] - pMap[a.priority]);
+    } else if (sortBy === 'Newest') {
+      list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    }
+    
+    return list;
+  }, [state.tasks, activeTab, sortBy]);
 
 
   const handleToggleStatus = (id) => {
@@ -110,29 +127,43 @@ export default function TasksScreen({ navigation }) {
     <View style={[styles.container, { backgroundColor: theme.colors.background, paddingTop: insets.top }]}>
       <View style={styles.header}>
         <View>
-          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Task Manager</Text>
-          <Text style={[styles.headerSubtitle, { color: theme.colors.primary }]}>Focus & Productivity</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Task Hub</Text>
+          <Text style={[styles.headerSubtitle, { color: theme.colors.primary }]}>AI Productivity OS</Text>
         </View>
-        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.colors.primary }]} onPress={() => navigation.navigate('AddTask')}>
-          <Ionicons name="add" size={28} color={theme.colors.textDark} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity 
+            style={[styles.focusBtn, { backgroundColor: theme.colors.cardSecondary }]}
+            onPress={() => setFocusModeVisible(true)}
+          >
+            <Ionicons name="sparkles" size={20} color={theme.colors.primary} />
+            <Text style={[styles.focusBtnText, { color: theme.colors.textPrimary }]}>Focus</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.colors.primary }]} onPress={() => navigation.navigate('AddTask')}>
+            <Ionicons name="add" size={28} color={theme.colors.textDark} />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      <FocusModeModal 
+        visible={focusModeVisible} 
+        onClose={() => setFocusModeVisible(false)}
+        onFinish={(duration) => {
+          // Focus session reported
+        }}
+      />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
-        {/* Analytics Insights */}
-        <View style={styles.insightsRow}>
-          <View style={[styles.insightCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <Text style={[styles.insightValue, { color: theme.colors.textPrimary }]}>{stats.pending}</Text>
-            <Text style={[styles.insightLabel, { color: theme.colors.textSecondary }]}>Pending</Text>
-          </View>
-          <View style={[styles.insightCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <Text style={[styles.insightValue, { color: theme.colors.primary }]}>{stats.duration}</Text>
-            <Text style={[styles.insightLabel, { color: theme.colors.textSecondary }]}>Work Time</Text>
-          </View>
-          <View style={[styles.insightCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-            <Text style={[styles.insightValue, { color: theme.colors.warning }]}>{stats.streak}d</Text>
-            <Text style={[styles.insightLabel, { color: theme.colors.textSecondary }]}>Streak</Text>
+        <TaskInsights tasks={state.tasks} logs={state.timeLogs} theme={theme} />
+
+        <View style={styles.filterHeader}>
+          <Text style={[styles.filterTitle, { color: theme.colors.textPrimary }]}>Tasks</Text>
+          <View style={styles.sortOptions}>
+            {['Priority', 'Newest'].map(opt => (
+              <TouchableOpacity key={opt} onPress={() => setSortBy(opt)} style={[styles.sortBtn, sortBy === opt && { backgroundColor: theme.colors.primary }]}>
+                <Text style={[styles.sortBtnText, { color: sortBy === opt ? theme.colors.textDark : theme.colors.textSecondary }]}>{opt}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         </View>
 
@@ -187,15 +218,19 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 28, fontWeight: '900', letterSpacing: -0.5 },
   headerSubtitle: { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1 },
-  addBtn: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  addBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  focusBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20 },
+  focusBtnText: { fontSize: 14, fontWeight: '800' },
   
-  scrollContent: { paddingHorizontal: 24 },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
   
-  insightsRow: { flexDirection: 'row', gap: 12, marginBottom: 32 },
-  insightCard: { flex: 1, padding: 16, borderRadius: 20, borderWidth: 1, alignItems: 'center' },
-  insightValue: { fontSize: 20, fontWeight: '900', marginBottom: 4 },
-  insightLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  
+  filterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, marginTop: 8 },
+  filterTitle: { fontSize: 20, fontWeight: '800' },
+  sortOptions: { flexDirection: 'row', gap: 8 },
+  sortBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  sortBtnText: { fontSize: 11, fontWeight: '800' },
+
   tabBar: { flexDirection: 'row', borderRadius: 16, padding: 6, marginBottom: 24 },
   tab: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
   tabText: { fontSize: 14, fontWeight: '800' },

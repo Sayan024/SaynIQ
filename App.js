@@ -15,9 +15,13 @@ function AppContent() {
   const [showOnboarding, setShowOnboarding] = useState(null);
 
   useEffect(() => {
-    AsyncStorage.getItem('@onboarding_completed').then(value => {
-      setShowOnboarding(value !== 'true');
-    });
+    AsyncStorage.getItem('@onboarding_completed')
+      .then(value => {
+        setShowOnboarding(value !== 'true');
+      })
+      .catch(() => {
+        setShowOnboarding(false); // Fallback to app if storage fails
+      });
   }, []);
 
   // ── Deep Link Handling ────────────────────────────────────────────────────────

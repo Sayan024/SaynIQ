@@ -2,16 +2,20 @@ import React, { useContext, useState, useCallback, useRef, useEffect } from 'rea
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
   Animated, Dimensions, Image, Linking, Share, RefreshControl,
-  ActivityIndicator, Modal
+  ActivityIndicator, Modal, TextInput, Alert
 } from 'react-native';
 
 import { VaultContext } from '../context/VaultContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import { BlurView } from 'expo-blur';
 import { getPasswordsList } from '../services/passwordService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ItemCard from '../components/ItemCard';
+import LinkCardSmall from '../components/LinkCardSmall';
+import OverviewDashboard from '../components/OverviewDashboard';
+import AddActionSheet from '../components/AddActionSheet';
 import { THEME } from '../styles/theme';
 
 const { width } = Dimensions.get('window');
@@ -83,13 +87,17 @@ function shuffle(arr) {
 }
 
 export default function HomeScreen({ navigation }) {
-  const { state } = useContext(VaultContext);
+  const { state, dispatch } = useContext(VaultContext);
   const theme = state.theme;
   const insets = useSafeAreaInsets();
   
   const [passwordCount, setPasswordCount] = useState(0);
   const [greeting, setGreeting] = useState(getGreeting());
-  const [profileName, setProfileName] = useState('User'); // Default fallback
+  const [profileName, setProfileName] = useState('User'); 
+  const [pinInput, setPinInput] = useState('');
+  const [isPinModalVisible, setIsPinModalVisible] = useState(false);
+  const [pinMode, setPinMode] = useState('unlock'); // 'unlock' or 'set'
+  const lockTimer = useRef(null);
 
   const [dailyQuote, setDailyQuote] = useState(QUOTES[0]);
   const [trendingRecs, setTrendingRecs] = useState([]);
@@ -97,6 +105,7 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   
   const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [addActionVisible, setAddActionVisible] = useState(false);
   
   const quoteFade = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;
@@ -255,6 +264,95 @@ export default function HomeScreen({ navigation }) {
   };
 
 
+  const handleToggleBalance = () => {
+    if (state.isBalanceUnlocked) {
+      dispatch({ type: 'SET_BALANCE_UNLOCK', payload: false });
+      if (lockTimer.current) clearTimeout(lockTimer.current);
+    } else {
+      if (!state.financePin) {
+        setPinMode('set');
+        setIsPinModalVisible(true);
+      } else {
+        setPinMode('unlock');
+        setIsPinModalVisible(true);
+      }
+    }
+  };
+
+  const handlePinSubmit = () => {
+    if (pinMode === 'set') {
+      if (pinInput.length < 4) {
+        Alert.alert('Error', 'PIN must be at least 4 digits.');
+        return;
+      }
+      dispatch({ type: 'SET_FINANCE_PIN', payload: pinInput });
+      dispatch({ type: 'SET_BALANCE_UNLOCK', payload: true });
+      startLockTimer();
+      setIsPinModalVisible(false);
+      setPinInput('');
+      Alert.alert('PIN Set', 'Your security PIN has been saved locally.');
+    } else {
+      if (pinInput === state.financePin) {
+        dispatch({ type: 'SET_BALANCE_UNLOCK', payload: true });
+        startLockTimer();
+        setIsPinModalVisible(false);
+        setPinInput('');
+      } else {
+        Alert.alert('Invalid PIN', 'Please try again.');
+        setPinInput('');
+      }
+    }
+  };
+
+  const startLockTimer = () => {
+    if (lockTimer.current) clearTimeout(lockTimer.current);
+    lockTimer.current = setTimeout(() => {
+      dispatch({ type: 'SET_BALANCE_UNLOCK', payload: false });
+    }, 30000); // 30 seconds
+  };
+
+  useEffect(() => {
+    return () => {
+      if (lockTimer.current) clearTimeout(lockTimer.current);
+    };
+  }, []);
+
+  const renderPinModal = () => (
+    <Modal visible={isPinModalVisible} transparent animationType="fade">
+      <BlurView intensity={100} tint="dark" style={styles.modalOverlay}>
+        <View style={[styles.pinModal, { backgroundColor: theme.colors.card }]}>
+          <Text style={[styles.modalTitle, { color: theme.colors.textPrimary }]}>
+            {pinMode === 'set' ? 'Set Security PIN' : 'Enter PIN'}
+          </Text>
+          <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>
+            {pinMode === 'set' ? 'Create a PIN to protect your financial data.' : 'Verify your identity to view balance.'}
+          </Text>
+          
+          <TextInput
+            style={[styles.pinInput, { color: theme.colors.textPrimary, borderColor: theme.colors.border }]}
+            value={pinInput}
+            onChangeText={setPinInput}
+            keyboardType="number-pad"
+            secureTextEntry
+            maxLength={6}
+            autoFocus
+            placeholder="••••"
+            placeholderTextColor={theme.colors.textSecondary}
+          />
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => { setIsPinModalVisible(false); setPinInput(''); }}>
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.colors.primary }]} onPress={handlePinSubmit}>
+              <Text style={styles.saveBtnText}>{pinMode === 'set' ? 'Set PIN' : 'Unlock'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </BlurView>
+    </Modal>
+  );
+
   const renderShareModal = () => (
     <Modal
       visible={shareModalVisible}
@@ -395,7 +493,14 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
+      {renderPinModal()}
       {renderShareModal()}
+      <AddActionSheet 
+        visible={addActionVisible} 
+        onClose={() => setAddActionVisible(false)}
+        onAction={(screen) => navigation.navigate(screen)}
+        theme={theme}
+      />
       <View style={[styles.blob, { backgroundColor: theme.colors.primary }]} />
 
       <ScrollView 
@@ -427,7 +532,7 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            <Text style={[styles.heroTitle, { color: theme.colors.textPrimary }]}>"{dailyQuote.text}"</Text>
+            <Text style={[styles.heroTitle, { color: theme.colors.textPrimary }]}>&quot;{dailyQuote.text}&quot;</Text>
             <View style={styles.quoteAuthorRow}>
               <View style={[styles.authorLine, { backgroundColor: theme.colors.primary }]} />
               <Text style={[styles.quoteAuthor, { color: theme.colors.textSecondary }]}>{dailyQuote.author}</Text>
@@ -438,45 +543,41 @@ export default function HomeScreen({ navigation }) {
           </View>
         </Animated.View>
 
-        {/* QUICK ACTIONS */}
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity style={[styles.actionChip, { backgroundColor: theme.colors.primary }]} onPress={() => navigation.navigate('SaynIQ')}>
-            <Ionicons name="sparkles" size={18} color={theme.colors.textDark} />
-            <Text style={[styles.actionChipText, { color: theme.colors.textDark }]}>Ask AI</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionChip, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={() => navigation.navigate('AddItem')}>
-            <Ionicons name="add-circle" size={18} color={theme.colors.primary} />
-            <Text style={[styles.actionChipText, { color: theme.colors.textPrimary }]}>Add Note</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionChip, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={() => navigation.navigate('AddLink')}>
-            <Ionicons name="link" size={18} color={theme.colors.primary} />
-            <Text style={[styles.actionChipText, { color: theme.colors.textPrimary }]}>Save URL</Text>
-          </TouchableOpacity>
-        </View>
-        
-        {renderAlertSection()}
-
-
-        {/* OVERVIEW GRID */}
-
-        <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Overview</Text>
-        <View style={styles.gridRow}>
-          {[
-            { icon:'document-text', color:theme.colors.primary, count:notesItems.length, label:'Notes' },
-            { icon:'link', color:theme.colors.highlight, count:linksItems.length, label:'Links' },
-            { icon:'key', color:theme.colors.warning, count:passwordCount, label:'Vault' },
-            { icon:'flame', color:theme.colors.danger, count:state.appStreak, label:'Streak' },
-
-          ].map(({ icon, color, count, label }) => (
-            <View key={label} style={[styles.gridItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
-              <View style={[styles.iconWrapper, { backgroundColor: `${color}15` }]}>
-                <Ionicons name={icon} size={20} color={color} />
-              </View>
-              <Text style={[styles.gridNumber, { color: theme.colors.textPrimary }]}>{count}</Text>
-              <Text style={[styles.gridLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
+        {/* SECURE FINANCE WIDGET */}
+        <TouchableOpacity 
+          style={[styles.financeWidget, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+          onPress={handleToggleBalance}
+          activeOpacity={0.9}
+        >
+          <View style={[styles.financeIconBox, { backgroundColor: `${theme.colors.primary}15` }]}>
+            <Ionicons name="shield-checkmark" size={20} color={theme.colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.financeLabel, { color: theme.colors.textSecondary }]}>Secure Finance Vault</Text>
+            <View style={styles.balanceRow}>
+              <Text style={[styles.financeValue, { color: theme.colors.textPrimary }]}>
+                {state.isBalanceUnlocked 
+                  ? `₹${(state.transactions.reduce((acc, t) => acc + (t.type === 'Income' ? t.amount : -t.amount), 0)).toLocaleString()}` 
+                  : '••••••••'}
+              </Text>
+              {!state.isBalanceUnlocked && <Text style={[styles.secureText, { color: theme.colors.textSecondary }]}>Protected</Text>}
             </View>
-          ))}
-        </View>
+          </View>
+          <Ionicons 
+            name={state.isBalanceUnlocked ? "eye-off-outline" : "eye-outline"} 
+            size={22} 
+            color={theme.colors.primary} 
+          />
+        </TouchableOpacity>
+        
+        <OverviewDashboard 
+          items={state.items} 
+          tasks={state.tasks} 
+          streak={state.appStreak} 
+          theme={theme} 
+        />
+
+        {renderAlertSection()}
 
         {/* TRENDING SECTION */}
         <View style={styles.sectionHeaderRow}>
@@ -509,9 +610,45 @@ export default function HomeScreen({ navigation }) {
             <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>Your second brain is waiting for its first note.</Text>
           </View>
         )}
+
+        {/* RECENTLY ADDED LINKS */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 32 }]}>
+          <View>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Recently Added Links</Text>
+            <Text style={[styles.lastUpdatedText, { color: theme.colors.textSecondary }]}>Your latest saved resources</Text>
+          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('Notes')}>
+             <Ionicons name="link" size={20} color={theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false} 
+          contentContainerStyle={[styles.hScrollContent, { paddingLeft: 0 }]}
+        >
+          {linksItems.length > 0 ? (
+            linksItems.slice(0, 5).map(item => (
+              <LinkCardSmall key={item.id} item={item} theme={theme} />
+            ))
+          ) : (
+            <View style={[styles.emptyLinksCard, { borderColor: theme.colors.border, backgroundColor: `${theme.colors.card}50` }]}>
+              <Ionicons name="link-outline" size={24} color={theme.colors.textSecondary} />
+              <Text style={[styles.emptyLinksText, { color: theme.colors.textSecondary }]}>No links saved yet</Text>
+            </View>
+          )}
+        </ScrollView>
         
         <View style={{ height: 120 }} />
       </ScrollView>
+
+      {/* FAB */}
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: theme.colors.primary, bottom: insets.bottom + 80 }]} 
+        onPress={() => setAddActionVisible(true)}
+      >
+        <Ionicons name="add" size={32} color={theme.colors.textDark} />
+      </TouchableOpacity>
     </View>
   );
 }
@@ -613,6 +750,31 @@ const styles = StyleSheet.create({
   alertBadgeText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
   alertTime: { fontSize: 10, fontWeight: '800' },
   quickOpenBtn: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  emptyLinksText: { fontSize: 12, fontWeight: '600' },
+
+  fab: {
+    position: 'absolute', right: 24, bottom: 90, width: 64, height: 64, borderRadius: 32,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 15, elevation: 15, zIndex: 100
+  },
+
+  financeWidget: {
+    flexDirection: 'row', alignItems: 'center', padding: 18, borderRadius: 24, borderWidth: 1, gap: 16, marginBottom: 24,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
+  },
+  financeIconBox: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  financeLabel: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', marginBottom: 2 },
+  financeValue: { fontSize: 18, fontWeight: '900' },
+  balanceRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  secureText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', opacity: 0.5 },
+
+  pinModal: { width: width * 0.85, padding: 32, borderRadius: 32, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 30, elevation: 20 },
+  pinInput: { height: 60, borderWidth: 1, borderRadius: 20, textAlign: 'center', fontSize: 24, fontWeight: '900', letterSpacing: 10, marginVertical: 32 },
+  modalActions: { flexDirection: 'row', gap: 15 },
+  cancelBtn: { flex: 1, paddingVertical: 16, alignItems: 'center' },
+  cancelBtnText: { color: 'rgba(255,255,255,0.5)', fontWeight: '800' },
+  saveBtn: { flex: 2, paddingVertical: 16, borderRadius: 15, alignItems: 'center' },
+  saveBtnText: { color: '#000', fontWeight: '900' },
 });
 
 

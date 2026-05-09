@@ -12,6 +12,9 @@ const initialState = {
   items: [], 
   tasks: [],
   timeLogs: [],
+  transactions: [],
+  financePin: null,
+  isBalanceUnlocked: false,
   appStreak: 1,
   loading: true,
   themeName: 'Drops Purple',
@@ -29,10 +32,16 @@ function vaultReducer(state, action) {
       return { ...state, tasks: action.payload };
     case 'SET_TIME_LOGS':
       return { ...state, timeLogs: action.payload };
+    case 'SET_TRANSACTIONS':
+      return { ...state, transactions: action.payload };
     case 'SET_APP_STREAK':
       return { ...state, appStreak: action.payload };
     case 'SET_THEME':
       return { ...state, themeName: action.payload, theme: buildTheme(action.payload) };
+    case 'SET_FINANCE_PIN':
+      return { ...state, financePin: action.payload };
+    case 'SET_BALANCE_UNLOCK':
+      return { ...state, isBalanceUnlocked: action.payload };
     case 'ADD_ITEM':
       return { ...state, items: [action.payload, ...state.items] };
     case 'DELETE_ITEM':
@@ -57,6 +66,18 @@ function vaultReducer(state, action) {
       return { ...state, tasks: state.tasks.filter(task => task.id !== action.payload) };
     case 'ADD_TIME_LOG':
       return { ...state, timeLogs: [action.payload, ...state.timeLogs] };
+    case 'ADD_TRANSACTION':
+      return { ...state, transactions: [action.payload, ...state.transactions] };
+    case 'DELETE_TRANSACTION':
+      const filteredTxs = state.transactions.filter(t => t.id !== action.payload);
+      AsyncStorage.setItem('@finance_data', JSON.stringify(filteredTxs));
+      return { ...state, transactions: filteredTxs };
+    case 'EDIT_TRANSACTION':
+      const updatedTxs = state.transactions.map(t => 
+        t.id === action.payload.id ? { ...t, ...action.payload.data, lastUpdated: new Date().toISOString() } : t
+      );
+      AsyncStorage.setItem('@finance_data', JSON.stringify(updatedTxs));
+      return { ...state, transactions: updatedTxs };
     case 'TOGGLE_BOOKMARK':
       return {
         ...state,
@@ -79,43 +100,62 @@ export const VaultProvider = ({ children }) => {
   }, []);
 
   const initialize = async () => {
-    const [items, tasks, logs, themeName, lastDate, savedStreak] = await Promise.all([
-      AsyncStorage.getItem('@vault_items'),
-      AsyncStorage.getItem('@tasks_data'),
-      AsyncStorage.getItem('@time_logs_data'),
-      loadThemeName(),
-      AsyncStorage.getItem('@last_open_date'),
-      AsyncStorage.getItem('@app_streak')
-    ]);
-    
-    if (items) dispatch({ type: 'SET_ITEMS', payload: JSON.parse(items) });
-    else dispatch({ type: 'SET_ITEMS', payload: [] });
+    // Hard fallback: Force SET_READY after 10 seconds if loading hangs
+    const bootTimeout = setTimeout(() => {
+      console.warn("Boot Timeout: Forcing SET_READY");
+      dispatch({ type: 'SET_READY' });
+    }, 10000);
 
-    if (tasks) dispatch({ type: 'SET_TASKS', payload: JSON.parse(tasks) });
-    else dispatch({ type: 'SET_TASKS', payload: [] });
+    try {
+      const [items, tasks, logs, transactions, financePin, themeName, lastDate, savedStreak] = await Promise.all([
+        AsyncStorage.getItem('@vault_items'),
+        AsyncStorage.getItem('@tasks_data'),
+        AsyncStorage.getItem('@time_logs_data'),
+        AsyncStorage.getItem('@finance_data'),
+        AsyncStorage.getItem('@finance_pin'),
+        loadThemeName(),
+        AsyncStorage.getItem('@last_open_date'),
+        AsyncStorage.getItem('@app_streak')
+      ]);
+      
+      if (items) dispatch({ type: 'SET_ITEMS', payload: JSON.parse(items) });
+      else dispatch({ type: 'SET_ITEMS', payload: [] });
 
-    if (logs) dispatch({ type: 'SET_TIME_LOGS', payload: JSON.parse(logs) });
-    else dispatch({ type: 'SET_TIME_LOGS', payload: [] });
-    
-    // Streak Logic
-    const today = new Date().toDateString();
-    let newStreak = savedStreak ? parseInt(savedStreak) : 1;
-    
-    if (lastDate && lastDate !== today) {
-      const last = new Date(lastDate);
-      const diff = (new Date(today) - last) / (1000 * 60 * 60 * 24);
-      if (diff === 1) {
-        newStreak += 1;
-      } else if (diff > 1) {
-        newStreak = 1;
+      if (tasks) dispatch({ type: 'SET_TASKS', payload: JSON.parse(tasks) });
+      else dispatch({ type: 'SET_TASKS', payload: [] });
+
+      if (logs) dispatch({ type: 'SET_TIME_LOGS', payload: JSON.parse(logs) });
+      else dispatch({ type: 'SET_TIME_LOGS', payload: [] });
+
+      if (transactions) dispatch({ type: 'SET_TRANSACTIONS', payload: JSON.parse(transactions) });
+      else dispatch({ type: 'SET_TRANSACTIONS', payload: [] });
+
+      if (financePin) dispatch({ type: 'SET_FINANCE_PIN', payload: financePin });
+      
+      // Streak Logic
+      const today = new Date().toDateString();
+      let newStreak = savedStreak ? parseInt(savedStreak) : 1;
+      
+      if (lastDate && lastDate !== today) {
+        const last = new Date(lastDate);
+        const diff = (new Date(today) - last) / (1000 * 60 * 60 * 24);
+        if (diff === 1) {
+          newStreak += 1;
+        } else if (diff > 1) {
+          newStreak = 1;
+        }
+        await AsyncStorage.setItem('@app_streak', newStreak.toString());
       }
-      await AsyncStorage.setItem('@app_streak', newStreak.toString());
-    }
-    await AsyncStorage.setItem('@last_open_date', today);
-    dispatch({ type: 'SET_APP_STREAK', payload: newStreak });
+      await AsyncStorage.setItem('@last_open_date', today);
+      dispatch({ type: 'SET_APP_STREAK', payload: newStreak });
 
-    dispatch({ type: 'SET_THEME', payload: themeName });
-    dispatch({ type: 'SET_READY' });
+      dispatch({ type: 'SET_THEME', payload: themeName });
+    } catch (error) {
+      console.error("Initialization Error:", error);
+    } finally {
+      clearTimeout(bootTimeout);
+      dispatch({ type: 'SET_READY' });
+    }
   };
 
 
@@ -126,14 +166,16 @@ export const VaultProvider = ({ children }) => {
     if (!state.loading) {
       saveData();
     }
-  }, [state.items, state.tasks, state.timeLogs]);
+  }, [state.items, state.tasks, state.timeLogs, state.transactions, state.financePin]);
 
   const saveData = async () => {
     try {
       await Promise.all([
         AsyncStorage.setItem('@vault_items', JSON.stringify(state.items)),
         AsyncStorage.setItem('@tasks_data', JSON.stringify(state.tasks)),
-        AsyncStorage.setItem('@time_logs_data', JSON.stringify(state.timeLogs))
+        AsyncStorage.setItem('@time_logs_data', JSON.stringify(state.timeLogs)),
+        AsyncStorage.setItem('@finance_data', JSON.stringify(state.transactions)),
+        AsyncStorage.setItem('@finance_pin', state.financePin || '')
       ]);
     } catch (e) {
       console.error("Critical: Storage Save Error", e);

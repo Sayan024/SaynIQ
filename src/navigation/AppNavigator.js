@@ -21,6 +21,8 @@ import AddTaskScreen    from '../screens/AddTaskScreen';
 import AboutScreen     from '../screens/AboutScreen';
 import AIChatScreen    from '../screens/AIChatScreen';
 import AddLinkScreen   from '../screens/AddLinkScreen';
+import SharePreviewScreen from '../screens/SharePreviewScreen';
+import FinanceScreen from '../screens/FinanceScreen';
 
 import { VaultContext } from '../context/VaultContext';
 
@@ -110,6 +112,23 @@ export default function AppNavigator() {
   const { state } = useContext(VaultContext);
   const theme = state.theme;
 
+  const linking = {
+    prefixes: ['sayniq://', 'https://sayn-iq.vercel.app'],
+    config: {
+      screens: {
+        MainTabs: {
+          screens: {
+            Dashboard: 'home',
+            Notes: 'notes',
+            Tasks: 'tasks',
+            SaynIQ: 'chat',
+          },
+        },
+        SharePreview: 'share/:shareId',
+      },
+    },
+  };
+
   const navTheme = {
     ...DarkTheme,
     colors: {
@@ -123,7 +142,7 @@ export default function AppNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer theme={navTheme} linking={linking}>
       <Stack.Navigator
         screenOptions={{ headerShown: false, presentation: 'modal' }}
         initialRouteName="MainTabs"
@@ -134,7 +153,9 @@ export default function AppNavigator() {
         <Stack.Screen name="AddPassword" component={AddPasswordScreen} />
 
         <Stack.Screen name="AddTask"     component={AddTaskScreen} />
+        <Stack.Screen name="Finance"     component={FinanceScreen} />
         <Stack.Screen name="About"       component={AboutScreen} />
+        <Stack.Screen name="SharePreview" component={SharePreviewScreen} options={{ presentation: 'card' }} />
       </Stack.Navigator>
     </NavigationContainer>
   );

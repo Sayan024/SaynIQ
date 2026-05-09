@@ -4,6 +4,7 @@ import {
   Share, ActivityIndicator, Alert, LayoutAnimation,
   UIManager, Platform, TextInput, Modal
 } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { VaultContext } from '../context/VaultContext';
@@ -18,11 +19,58 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 const USER_PROFILE_KEY = '@user_profile';
 
 const FAQ_DATA = [
-  { q: 'How do AI summaries work?', a: "We use Gemini AI to analyze your notes, links, and code. It extracts key learning points and tags automatically — your data never leaves your device beyond the API call." },
-  { q: 'How do notes sync?', a: "The app is fully offline-first. Your vault lives in secure local storage. Cloud sync (Supabase) is planned for the next major release." },
-  { q: 'How secure are my passwords?', a: "All passwords are encrypted with Expo SecureStore. They are completely isolated from the AI system and never appear in plaintext databases." },
-  { q: 'What does AI context do?', a: "When you use Copilot, we locally keyword-search your vault, pick the 5 most relevant notes, and send them to Gemini so it answers based on *your* data." },
-  { q: 'Can I use the app offline?', a: "Yes! Notes and passwords work 100% offline. You only need internet for the Ask AI and Generate Summary features." },
+  { 
+    q: 'What is SaynIQ?', 
+    a: "SaynIQ is an AI-powered 'Second Brain' and productivity OS. It combines note-taking, link saving, password management, and task tracking with advanced AI capabilities to help you organize and retrieve your knowledge effortlessly." 
+  },
+  { 
+    q: 'How does AI Chat work?', 
+    a: "The AI Chat (SaynIQ Copilot) uses RAG (Retrieval-Augmented Generation) to search through your local vault. It identifies relevant notes and links to provide answers that are specifically tailored to your saved data." 
+  },
+  { 
+    q: 'How do shared links work?', 
+    a: "SaynIQ generates unique, reusable share IDs for your content. When someone opens a link like 'sayn-iq.vercel.app/share/note-ax82', they can preview the content and import it directly into their own SaynIQ vault." 
+  },
+  { 
+    q: 'Can I sync across devices?', 
+    a: "Currently, SaynIQ is offline-first for maximum privacy and speed. You can export your data as a JSON file and import it on another device. Cloud synchronization is a planned feature for future updates." 
+  },
+  { 
+    q: 'How are reminders handled?', 
+    a: "Reminders use native system notifications. You can set a reminder for any note or task, and SaynIQ will alert you even when the app is closed. You can also specify alert types like 'Read Later' or 'Watch Important'." 
+  },
+  { 
+    q: 'Is my data secure?', 
+    a: "Yes. Your passwords are encrypted using hardware-backed SecureStore (AES-256). Your notes and tasks are stored locally on your device. We only send relevant snippets to the Gemini API during AI interactions." 
+  },
+  { 
+    q: 'Can I save YouTube links and notes?', 
+    a: "Absolutely! When you save a YouTube link, SaynIQ fetches the metadata and can even generate an AI-powered summary of the video's content to help you learn faster." 
+  },
+  { 
+    q: 'How does the Knowledge Hub work?', 
+    a: "The Knowledge Hub unifies your notes and links into a single, searchable interface. You can filter by category, date, or search for specific keywords across all your stored information." 
+  },
+  { 
+    q: 'Can I use SaynIQ offline?', 
+    a: "Yes, the core functionality (notes, tasks, passwords) works 100% offline. Internet access is only required for AI-powered features like chat, summarization, and link metadata fetching." 
+  },
+  { 
+    q: 'How do I import shared content?', 
+    a: "When you open a SaynIQ share link, you'll see a preview of the content. Simply tap 'Save to SaynIQ' to import it into your personal vault instantly." 
+  },
+  { 
+    q: 'How do streaks and productivity tracking work?', 
+    a: "SaynIQ tracks your daily activity to maintain a 'Streak'. The Productivity Log allows you to track time spent on specific tasks, helping you visualize your focus and efficiency over time." 
+  },
+  { 
+    q: 'How do I backup my data?', 
+    a: "You can go to Settings > System > Export Vault Data to generate a complete backup of your notes and passwords. Keep this file safe to restore your data later." 
+  },
+  { 
+    q: 'Is SaynIQ free to use?', 
+    a: "SaynIQ is currently free to use. We aim to provide a powerful personal intelligence tool accessible to everyone, with potential premium features for enterprise needs in the future." 
+  },
 ];
 
 export default function AboutScreen({ navigation }) {
@@ -38,6 +86,7 @@ export default function AboutScreen({ navigation }) {
   const [editingName, setEditingName]           = useState(false);
   const [tempName, setTempName]                 = useState('');
   const [interests, setInterests]               = useState(['AI']);
+  const [faqSearch, setFaqSearch]               = useState('');
 
   useEffect(() => {
     // Load persisted profile & interests
@@ -245,42 +294,81 @@ export default function AboutScreen({ navigation }) {
         <Text style={[styles.sectionLabel, { color: theme.colors.textSecondary }]}>Support & Info</Text>
 
         <Accordion title="About SaynIQ" icon="planet" sectionKey="about">
-          <View style={styles.aboutBrandBox}>
-            <Ionicons name="sparkles" size={52} color={theme.colors.primary} />
+          <BlurView intensity={20} tint="light" style={[styles.aboutBrandBox, { backgroundColor: `${theme.colors.cardSecondary}80`, borderRadius: 24, padding: 24, borderWidth: 1, borderColor: theme.colors.border, overflow: 'hidden' }]}>
+            <View style={styles.brandIconWrapper}>
+              <Ionicons name="sparkles" size={52} color={theme.colors.primary} />
+            </View>
             <Text style={[styles.aboutAppName, { color: theme.colors.textPrimary }]}>SaynIQ</Text>
-            <Text style={[styles.aboutTagline, { color: theme.colors.primary }]}>Your AI Second Brain</Text>
-          </View>
-          <Text style={[styles.aboutTitle, { color: theme.colors.textPrimary }]}>Version 2.1 · Enterprise Edition</Text>
+            <Text style={[styles.aboutTagline, { color: theme.colors.primary }]}>Your AI-Powered Second Brain</Text>
+            
+            <View style={styles.versionBadge}>
+              <Text style={[styles.versionText, { color: theme.colors.textSecondary }]}>Version 2.5.0</Text>
+            </View>
+          </BlurView>
+
+          <Text style={[styles.aboutTitle, { color: theme.colors.textPrimary, marginTop: 24 }]}>Professional Productivity OS</Text>
           <Text style={[styles.aboutText, { color: theme.colors.textSecondary }]}>
-            SaynIQ is an advanced AI knowledge operating system designed to elevate your personal intelligence.
-            Capture thoughts, secure passwords, and track productivity while chatting with your own data vault powered by Gemini.
+            SaynIQ is a modern knowledge management system designed to elevate your intelligence. 
+            It acts as your digital second brain, helping you capture, organize, and synthesize 
+            information with the power of Active Intelligence.
           </Text>
           
           <View style={styles.featureList}>
             {[
-              { t: 'AI Summaries', d: 'Auto-summarize notes & links' },
-              { t: 'Productivity Logs', d: 'Track work time dynamically' },
-              { t: 'Secure Vault', d: 'AES-encrypted password manager' },
-              { t: 'Study Assistant', d: 'Personalized learning plans' }
+              { icon: 'brain', t: 'AI Second Brain', d: 'Context-aware knowledge retrieval' },
+              { icon: 'rocket', t: 'Productivity Hub', d: 'Reminders, tasks, and time tracking' },
+              { icon: 'shield-checkmark', t: 'Secure Vault', d: 'Hardware-encrypted data protection' },
+              { icon: 'share-social', t: 'Smart Sharing', d: 'Reusable public share templates' }
             ].map((f, i) => (
-              <View key={i} style={[styles.featureCard, { backgroundColor: theme.colors.cardSecondary }]}>
-                <Text style={[styles.featureT, { color: theme.colors.primary }]}>{f.t}</Text>
-                <Text style={[styles.featureD, { color: theme.colors.textSecondary }]}>{f.d}</Text>
+              <View key={i} style={[styles.featureCard, { backgroundColor: theme.colors.background, borderColor: theme.colors.border, borderWidth: 1 }]}>
+                <View style={[styles.featureIconBox, { backgroundColor: `${theme.colors.primary}15` }]}>
+                  <Ionicons name={f.icon} size={18} color={theme.colors.primary} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.featureT, { color: theme.colors.textPrimary }]}>{f.t}</Text>
+                  <Text style={[styles.featureD, { color: theme.colors.textSecondary }]}>{f.d}</Text>
+                </View>
               </View>
             ))}
           </View>
 
-          <Text style={[styles.aboutCredits, { color: theme.colors.primary, marginTop: 20 }]}>✦  Designed & Built by Sayan Banerjee</Text>
+          <View style={[styles.builderBox, { borderTopColor: theme.colors.border }]}>
+             <Text style={[styles.builderText, { color: theme.colors.textSecondary }]}>Built with ❤️ by</Text>
+             <Text style={[styles.builderName, { color: theme.colors.primary }]}>Sayan Banerjee</Text>
+          </View>
         </Accordion>
 
 
-        <Accordion title="Frequently Asked Questions" icon="help-circle" sectionKey="faq">
-          {FAQ_DATA.map((faq, i) => (
-            <View key={i} style={styles.faqItem}>
+        <Accordion title="Help & Support (FAQ)" icon="help-circle" sectionKey="faq">
+          <BlurView intensity={15} tint="light" style={[styles.faqSearchContainer, { backgroundColor: `${theme.colors.card}80`, borderColor: theme.colors.border, overflow: 'hidden' }]}>
+            <Ionicons name="search" size={18} color={theme.colors.textSecondary} style={{ marginRight: 10 }} />
+            <TextInput
+              style={[styles.faqSearchInput, { color: theme.colors.textPrimary }]}
+              placeholder="Search help topics..."
+              placeholderTextColor={theme.colors.textSecondary}
+              value={faqSearch}
+              onChangeText={setFaqSearch}
+            />
+          </BlurView>
+
+          {FAQ_DATA.filter(faq => 
+            faq.q.toLowerCase().includes(faqSearch.toLowerCase()) || 
+            faq.a.toLowerCase().includes(faqSearch.toLowerCase())
+          ).map((faq, i) => (
+            <View key={i} style={[styles.faqItemContainer, { borderBottomColor: theme.colors.border }]}>
               <Text style={[styles.faqQ, { color: theme.colors.textPrimary }]}>{faq.q}</Text>
               <Text style={[styles.faqA, { color: theme.colors.textSecondary }]}>{faq.a}</Text>
             </View>
           ))}
+          
+          {FAQ_DATA.filter(faq => 
+            faq.q.toLowerCase().includes(faqSearch.toLowerCase()) || 
+            faq.a.toLowerCase().includes(faqSearch.toLowerCase())
+          ).length === 0 && (
+            <View style={styles.emptyFaq}>
+              <Text style={{ color: theme.colors.textSecondary }}>No results found for &quot;{faqSearch}&quot;</Text>
+            </View>
+          )}
         </Accordion>
 
         <View style={{ height: 80 }} />
@@ -337,12 +425,25 @@ const styles = StyleSheet.create({
   faqA:    { fontSize: 14, lineHeight: 22 },
 
   aboutBrandBox: { alignItems: 'center', marginBottom: 20 },
-  aboutAppName: { fontSize: 28, fontWeight: '900', letterSpacing: -1, marginTop: 8 },
-  aboutTagline: { fontSize: 14, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 2 },
-  featureList: { gap: 10, marginTop: 10 },
-  featureCard: { padding: 12, borderRadius: 16 },
-  featureT: { fontSize: 14, fontWeight: '800' },
-  featureD: { fontSize: 12, marginTop: 2 },
+  aboutAppName: { fontSize: 32, fontWeight: '900', letterSpacing: -1, marginTop: 12 },
+  aboutTagline: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, marginTop: 4 },
+  featureList: { gap: 12, marginTop: 20 },
+  featureCard: { padding: 16, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  featureIconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  featureT: { fontSize: 15, fontWeight: '800' },
+  featureD: { fontSize: 13, marginTop: 2, lineHeight: 18 },
+  
+  builderBox: { marginTop: 32, paddingTop: 20, borderTopWidth: 1, alignItems: 'center' },
+  builderText: { fontSize: 13, fontWeight: '600' },
+  builderName: { fontSize: 16, fontWeight: '800', marginTop: 4 },
+  
+  versionBadge: { marginTop: 16, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  versionText: { fontSize: 11, fontWeight: '700' },
+
+  faqSearchContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  faqSearchInput: { flex: 1, fontSize: 14, fontWeight: '600' },
+  faqItemContainer: { paddingBottom: 20, marginBottom: 20, borderBottomWidth: 1 },
+  emptyFaq: { paddingVertical: 40, alignItems: 'center' },
   
   categoryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
   catBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },

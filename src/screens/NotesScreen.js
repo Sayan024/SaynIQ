@@ -9,6 +9,7 @@ import { VaultContext } from '../context/VaultContext';
 import ItemCard from '../components/ItemCard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AddActionSheet from '../components/AddActionSheet';
 import { THEME } from '../styles/theme';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -29,6 +30,7 @@ export default function NotesScreen() {
   const [activeTab,     setActiveTab]     = useState('All');
   const [filters,       setFilters]       = useState(FILTER_DEFAULTS);
   const [sheetVisible,  setSheetVisible]  = useState(false);
+  const [addActionVisible, setAddActionVisible] = useState(false);
   const sheetAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -83,24 +85,7 @@ export default function NotesScreen() {
     </View>
   );
 
-  const renderQuickActions = () => (
-    <View style={styles.quickActions}>
-      <TouchableOpacity 
-        style={[styles.actionCard, { backgroundColor: theme.colors.primary }]} 
-        onPress={() => navigation.navigate('AddItem')}
-      >
-        <Ionicons name="document-text" size={18} color={theme.colors.textDark} />
-        <Text style={[styles.actionCardText, { color: theme.colors.textDark }]}>Add Note</Text>
-      </TouchableOpacity>
-      <TouchableOpacity 
-        style={[styles.actionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} 
-        onPress={() => navigation.navigate('AddLink')}
-      >
-        <Ionicons name="link" size={18} color={theme.colors.primary} />
-        <Text style={[styles.actionCardText, { color: theme.colors.textPrimary }]}>Add Link</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderQuickActions = () => null; // Removed in favor of FAB
 
   return (
 
@@ -173,11 +158,27 @@ export default function NotesScreen() {
         ListEmptyComponent={<EmptyComponent />}
       />
 
+      {/* ── FLOATING ACTION BUTTON ── */}
+      <TouchableOpacity 
+        style={[styles.fab, { backgroundColor: theme.colors.primary, bottom: insets.bottom + 80 }]} 
+        onPress={() => setAddActionVisible(true)}
+        activeOpacity={0.9}
+      >
+        <Ionicons name="add" size={32} color={theme.colors.textDark} />
+      </TouchableOpacity>
+
+      <AddActionSheet 
+        visible={addActionVisible} 
+        onClose={() => setAddActionVisible(false)}
+        onAction={(screen) => navigation.navigate(screen)}
+        theme={theme}
+      />
+
       {/* ── FLOATING FILTER BUTTON ── */}
       <TouchableOpacity 
         style={[
           styles.floatingFilter, 
-          { backgroundColor: theme.colors.card, borderColor: theme.colors.primary },
+          { backgroundColor: theme.colors.card, borderColor: theme.colors.primary, bottom: insets.bottom + 160 },
           activeFilterCount > 0 && { backgroundColor: theme.colors.primary }
         ]} 
         onPress={openSheet}
@@ -277,10 +278,16 @@ const styles = StyleSheet.create({
 
   list: { paddingHorizontal: 24, paddingBottom: 150, paddingTop: 10 },
   
+  fab: {
+    position: 'absolute', right: 20, bottom: 30, width: 64, height: 64, borderRadius: 32,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 15, elevation: 15, zIndex: 20
+  },
+
   floatingFilter: { 
-    position: 'absolute', right: 20, bottom: 100, width: 60, height: 60, borderRadius: 30, 
+    position: 'absolute', right: 20, bottom: 110, width: 54, height: 54, borderRadius: 27, 
     justifyContent: 'center', alignItems: 'center', borderWidth: 1.5,
-    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 15, elevation: 12, zIndex: 10
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, elevation: 10, zIndex: 10
   },
   filterCountBadge: { position: 'absolute', top: -5, right: -5, width: 22, height: 22, borderRadius: 11, backgroundColor: '#FF4B6E', justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
   filterCountText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },

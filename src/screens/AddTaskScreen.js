@@ -20,6 +20,8 @@ export default function AddTaskScreen({ navigation }) {
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Work');
   const [priority, setPriority] = useState('Medium');
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurringType, setRecurringType] = useState('Daily'); // Daily, Weekly
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -35,7 +37,9 @@ export default function AddTaskScreen({ navigation }) {
       priority,
       status: 'Pending',
       createdAt: new Date().toISOString(),
-      totalDuration: 0
+      totalDuration: 0,
+      isRecurring,
+      recurringType: isRecurring ? recurringType : null
     };
 
     dispatch({ type: 'ADD_TASK', payload: newTask });
@@ -99,17 +103,29 @@ export default function AddTaskScreen({ navigation }) {
           </View>
 
           <View style={styles.formGroup}>
-            <Text style={[styles.label, { color: theme.colors.textPrimary }]}>Priority</Text>
-            <View style={styles.chipRow}>
-              {PRIORITIES.map(prio => (
-                <TouchableOpacity 
-                  key={prio} 
-                  style={[styles.chip, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, priority === prio && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
-                  onPress={() => setPriority(prio)}
-                >
-                  <Text style={[styles.chipText, { color: priority === prio ? theme.colors.textDark : theme.colors.textSecondary }]}>{prio}</Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={[styles.label, { color: theme.colors.textPrimary }]}>Recurring Task</Text>
+            <View style={styles.recurringRow}>
+              <TouchableOpacity 
+                style={[styles.switchBtn, { backgroundColor: isRecurring ? theme.colors.primary : theme.colors.card }]} 
+                onPress={() => setIsRecurring(!isRecurring)}
+              >
+                <Ionicons name={isRecurring ? "repeat" : "stop"} size={20} color={isRecurring ? theme.colors.textDark : theme.colors.textSecondary} />
+                <Text style={[styles.switchText, { color: isRecurring ? theme.colors.textDark : theme.colors.textSecondary }]}>{isRecurring ? 'Recurring On' : 'One-time Task'}</Text>
+              </TouchableOpacity>
+              
+              {isRecurring && (
+                <View style={styles.chipRow}>
+                  {['Daily', 'Weekly'].map(type => (
+                    <TouchableOpacity 
+                      key={type} 
+                      style={[styles.chip, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }, recurringType === type && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}
+                      onPress={() => setRecurringType(type)}
+                    >
+                      <Text style={[styles.chipText, { color: recurringType === type ? theme.colors.textDark : theme.colors.textSecondary }]}>{type}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
             </View>
           </View>
 
@@ -163,6 +179,10 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 14, borderWidth: 1 },
   chipText: { fontSize: 13, fontWeight: '800' },
+
+  recurringRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  switchBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 16, flex: 1 },
+  switchText: { fontSize: 14, fontWeight: '800' },
   
   footer: { padding: 24, borderTopWidth: 1 },
   saveBtn: {
