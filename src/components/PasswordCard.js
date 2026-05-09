@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { getPasswordValue } from '../services/passwordService';
-import { THEME } from '../styles/theme';
+import { VaultContext } from '../context/VaultContext';
 
 export default function PasswordCard({ item, onEdit, onDelete }) {
+  const { state } = useContext(VaultContext);
+  const theme = state.theme;
   const [showPassword, setShowPassword] = useState(false);
   const [passwordValue, setPasswordValue] = useState('••••••••••••');
 
@@ -56,53 +58,53 @@ export default function PasswordCard({ item, onEdit, onDelete }) {
   };
 
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.iconContainer}>
-            <Ionicons name={getPlatformIcon()} size={24} color={THEME.colors.primary} />
+          <View style={[styles.iconContainer, { backgroundColor: theme.colors.cardSecondary }]}>
+            <Ionicons name={getPlatformIcon()} size={24} color={theme.colors.primary} />
           </View>
           <View>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.date}>Updated {new Date(item.updatedAt).toLocaleDateString()}</Text>
+            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{item.title}</Text>
+            <Text style={[styles.date, { color: theme.colors.textSecondary }]}>Updated {new Date(item.updatedAt).toLocaleDateString()}</Text>
           </View>
         </View>
         <View style={styles.actions}>
           <TouchableOpacity onPress={() => onEdit(item)} style={styles.actionBtn}>
-            <Ionicons name="pencil" size={20} color={THEME.colors.textSecondary} />
+            <Ionicons name="pencil" size={20} color={theme.colors.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity onPress={confirmDelete} style={styles.actionBtn}>
-            <Ionicons name="trash-outline" size={20} color={THEME.colors.danger} />
+            <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.fieldsContainer}>
+      <View style={[styles.fieldsContainer, { backgroundColor: theme.colors.background, borderColor: theme.colors.border }]}>
         {item.username ? (
-          <View style={styles.fieldRow}>
+          <View style={[styles.fieldRow, { borderBottomColor: theme.colors.border }]}>
             <View style={styles.fieldContent}>
-              <Text style={styles.label}>Username / Email</Text>
-              <Text style={styles.value} numberOfLines={1}>{item.username}</Text>
+              <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Username / Email</Text>
+              <Text style={[styles.value, { color: theme.colors.textPrimary }]} numberOfLines={1}>{item.username}</Text>
             </View>
             <TouchableOpacity onPress={copyUsername} style={styles.copyBtn}>
-              <Ionicons name="copy-outline" size={20} color={THEME.colors.primary} />
+              <Ionicons name="copy-outline" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
         ) : null}
 
-        <View style={[styles.fieldRow, !item.username && styles.fieldRowSingle]}>
+        <View style={[styles.fieldRow, !item.username && styles.fieldRowSingle, { borderBottomColor: theme.colors.border }]}>
           <View style={styles.fieldContent}>
-            <Text style={styles.label}>Password</Text>
-            <Text style={[styles.value, !showPassword && styles.maskedValue]} numberOfLines={1}>
+            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Password</Text>
+            <Text style={[styles.value, { color: theme.colors.textPrimary }, !showPassword && styles.maskedValue]} numberOfLines={1}>
               {passwordValue}
             </Text>
           </View>
           <View style={styles.passwordActions}>
             <TouchableOpacity onPress={handleToggleVisibility} style={styles.copyBtn}>
-              <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color={THEME.colors.textSecondary} />
+              <Ionicons name={showPassword ? "eye-off" : "eye"} size={22} color={theme.colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity onPress={copyPassword} style={styles.copyBtn}>
-              <Ionicons name="copy" size={20} color={THEME.colors.primary} />
+              <Ionicons name="copy" size={20} color={theme.colors.primary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -112,100 +114,22 @@ export default function PasswordCard({ item, onEdit, onDelete }) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: THEME.colors.card,
-    borderRadius: THEME.borderRadius.lg,
-    padding: THEME.spacing.lg,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: THEME.spacing.md,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    backgroundColor: THEME.colors.cardSecondary,
-    padding: 12,
-    borderRadius: THEME.borderRadius.md,
-    marginRight: 14,
-  },
-  title: {
-    color: THEME.colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  date: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  actions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  actionBtn: {
-    padding: 6,
-    marginLeft: 8,
-  },
-  fieldsContainer: {
-    backgroundColor: THEME.colors.background,
-    borderRadius: THEME.borderRadius.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: THEME.colors.border,
-  },
-  fieldRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: THEME.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: THEME.colors.border,
-  },
-  fieldRowSingle: {
-    borderBottomWidth: 0,
-  },
-  fieldContent: {
-    flex: 1,
-    marginRight: 10,
-  },
-  label: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  value: {
-    color: THEME.colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  maskedValue: {
-    letterSpacing: 3,
-    fontSize: 20,
-    marginTop: -2,
-  },
-  passwordActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  copyBtn: {
-    padding: 8,
-    marginLeft: 4,
-  }
+  card: { borderRadius: 24, padding: 24, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 4, borderWidth: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
+  iconContainer: { padding: 12, borderRadius: 16, marginRight: 14 },
+  title: { fontSize: 18, fontWeight: '800', marginBottom: 2 },
+  date: { fontSize: 12, fontWeight: '500' },
+  actions: { flexDirection: 'row', alignItems: 'center' },
+  actionBtn: { padding: 6, marginLeft: 8 },
+  fieldsContainer: { borderRadius: 16, overflow: 'hidden', borderWidth: 1 },
+  fieldRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1 },
+  fieldRowSingle: { borderBottomWidth: 0 },
+  fieldContent: { flex: 1, marginRight: 10 },
+  label: { fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  value: { fontSize: 16, fontWeight: '600' },
+  maskedValue: { letterSpacing: 3, fontSize: 20, marginTop: -2 },
+  passwordActions: { flexDirection: 'row', alignItems: 'center' },
+  copyBtn: { padding: 8, marginLeft: 4 }
 });
+

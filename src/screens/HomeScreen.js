@@ -1,5 +1,10 @@
 import React, { useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions, Image, Linking, Share } from 'react-native';
+import { 
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, 
+  Animated, Dimensions, Image, Linking, Share, RefreshControl,
+  ActivityIndicator, Modal
+} from 'react-native';
+
 import { VaultContext } from '../context/VaultContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +19,7 @@ const USER_PROFILE_KEY = '@user_profile';
 const DAILY_QUOTE_KEY = '@daily_quote';
 const TRENDING_CACHE_KEY = '@trending_cache';
 
+// Time-based greeting logic
 function getGreeting() {
   const h = new Date().getHours();
   if (h >= 5 && h < 12) return 'Good Morning';
@@ -50,7 +56,7 @@ const QUOTES = [
 
 const ALL_RECS = [
   { id:'r1', title:'How AI Agents Are Reshaping Software Development', source:'dev.to', topic:'AI Agents', readTime:'6 min', preview:'Autonomous agent frameworks like LangGraph, CrewAI, and agentic patterns.', aiReason:'Trending in AI Agents.', url:'https://dev.to', isTrending:true },
-  { id:'r2', title:'Microsoft Fabric: Data Engineer\u2019s Guide', source:'techcommunity.microsoft.com', topic:'Microsoft Fabric', readTime:'9 min', preview:'OneLake, Lakehouse, and unified analytics for the modern data stack.', aiReason:'Matches Data Engineering interests.', url:'https://techcommunity.microsoft.com', isTrending:true },
+  { id:'r2', title:'Microsoft Fabric: Data Engineer’s Guide', source:'techcommunity.microsoft.com', topic:'Microsoft Fabric', readTime:'9 min', preview:'OneLake, Lakehouse, and unified analytics for the modern data stack.', aiReason:'Matches Data Engineering interests.', url:'https://techcommunity.microsoft.com', isTrending:true },
   { id:'r3', title:'LLMs Explained: From Transformers to GPT-4o', source:'towardsdatascience.com', topic:'LLMs', readTime:'11 min', preview:'Attention heads, embeddings, and RLHF fine-tuning explained visually.', aiReason:'Highly trending in AI.', url:'https://towardsdatascience.com', isTrending:true },
   { id:'r4', title:'Python Data Engineering 2025: Tools & Practices', source:'medium.com', topic:'Python', readTime:'8 min', preview:'Polars vs Pandas, DuckDB, and Python-native data tools.', aiReason:'Based on Python notes.', url:'https://medium.com', isTrending:true },
   { id:'r5', title:'React Native Performance Optimization Guide', source:'reactnative.dev', topic:'React Native', readTime:'7 min', preview:'Hermes, Fabric renderer, lazy loading and new architecture.', aiReason:'React Native dev pick.', url:'https://reactnative.dev', isTrending:true },
@@ -61,388 +67,555 @@ const ALL_RECS = [
   { id:'r10', title:'Data Engineering with dbt & Snowflake', source:'getdbt.com', topic:'Data Engineering', readTime:'8 min', preview:'Transform raw data into analytics-ready datasets with ELT.', aiReason:'Data Engineering trending.', url:'https://getdbt.com', isTrending:false },
 ];
 
-function shuffle(arr) { const a=[...arr]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
-
 const TOPIC_COLORS = {
   'AI Agents':'#D7E65A','Microsoft Fabric':'#60A5FA','LLMs':'#C084FC','Python':'#34D399',
   'React Native':'#F87171','Machine Learning':'#FBBF24','Cybersecurity':'#FF6B6B',
   'DevOps':'#93C5FD','AI':'#E879F9','Data Engineering':'#4ADE80',
 };
 
+function shuffle(arr) { 
+  const a=[...arr]; 
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [a[i],a[j]]=[a[j],a[i]];
+  } 
+  return a; 
+}
+
 export default function HomeScreen({ navigation }) {
   const { state } = useContext(VaultContext);
+  const theme = state.theme;
   const insets = useSafeAreaInsets();
+  
   const [passwordCount, setPasswordCount] = useState(0);
   const [greeting, setGreeting] = useState(getGreeting());
-  const [profileName, setProfileName] = useState('Friend');
-  const [dailyQuote, setDailyQuote] = useState(QUOTES[0]);
-  const [trendingRecs, setTrendingRecs] = useState(ALL_RECS.slice(0, 5));
-  const [lastUpdated, setLastUpdated] = useState('');
-  const quoteFade = useRef(new Animated.Value(0)).current;
-  const [isFabOpen, setIsFabOpen] = useState(false);
-  const animation = useRef(new Animated.Value(0)).current;
+  const [profileName, setProfileName] = useState('User'); // Default fallback
 
-  const toggleFab = () => {
-    const toValue = isFabOpen ? 0 : 1;
-    Animated.spring(animation, { toValue, friction: 5, useNativeDriver: true }).start();
-    setIsFabOpen(!isFabOpen);
+  const [dailyQuote, setDailyQuote] = useState(QUOTES[0]);
+  const [trendingRecs, setTrendingRecs] = useState([]);
+  const [lastUpdated, setLastUpdated] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  
+  const quoteFade = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+
+
+  // Load profile name and initial greeting
+  const loadProfile = async () => {
+    try {
+      const name = await AsyncStorage.getItem(USER_PROFILE_KEY);
+      if (name) setProfileName(name);
+      setGreeting(getGreeting());
+    } catch (e) {
+      console.log('Profile load error', e);
+    }
   };
 
-  // Load profile name
-  useEffect(() => {
-    AsyncStorage.getItem(USER_PROFILE_KEY).then(v => { if (v) setProfileName(v); });
-  }, []);
+  // Re-fetch profile on focus to ensure dynamic updates
+  useFocusEffect(useCallback(() => {
+    loadProfile();
+    loadPasswords();
+    checkDailyQuote();
+    checkTrendingFeed();
+  }, []));
 
-  // Greeting timer - update every minute
+  // Greeting timer - update every 30 seconds to ensure accuracy
   useEffect(() => {
-    const interval = setInterval(() => setGreeting(getGreeting()), 60000);
+    const interval = setInterval(() => setGreeting(getGreeting()), 30000);
     return () => clearInterval(interval);
   }, []);
 
-  // Re-fetch profile on focus
-  useFocusEffect(useCallback(() => {
-    AsyncStorage.getItem(USER_PROFILE_KEY).then(v => { if (v) setProfileName(v); });
-    setGreeting(getGreeting());
-  }, []));
-
-  // Daily quote logic
-  useEffect(() => {
-    (async () => {
-      try {
-        const today = new Date().toDateString();
-        const saved = await AsyncStorage.getItem(DAILY_QUOTE_KEY);
-        const parsed = saved ? JSON.parse(saved) : null;
-        if (parsed && parsed.date === today) {
-          setDailyQuote(QUOTES[parsed.index % QUOTES.length]);
-        } else {
-          const prevIdx = parsed ? parsed.index : -1;
-          let newIdx = (prevIdx + 1) % QUOTES.length;
-          await AsyncStorage.setItem(DAILY_QUOTE_KEY, JSON.stringify({ index: newIdx, date: today }));
-          setDailyQuote(QUOTES[newIdx]);
-        }
-      } catch { setDailyQuote(QUOTES[0]); }
-      Animated.timing(quoteFade, { toValue: 1, duration: 800, useNativeDriver: true }).start();
-    })();
-  }, []);
-
-  // Trending auto-refresh (1 hour cache)
-  useEffect(() => {
-    (async () => {
-      try {
-        const saved = await AsyncStorage.getItem(TRENDING_CACHE_KEY);
-        const parsed = saved ? JSON.parse(saved) : null;
-        const now = Date.now();
-        if (parsed && (now - parsed.timestamp < 3600000)) {
-          const ids = parsed.order;
-          const mapped = ids.map(id => ALL_RECS.find(r => r.id === id)).filter(Boolean);
-          setTrendingRecs(mapped.length >= 5 ? mapped : ALL_RECS.slice(0, 5));
-          const mins = Math.floor((now - parsed.timestamp) / 60000);
-          setLastUpdated(mins < 1 ? 'Just now' : `${mins}m ago`);
-        } else {
-          const shuffled = shuffle(ALL_RECS);
-          await AsyncStorage.setItem(TRENDING_CACHE_KEY, JSON.stringify({ order: shuffled.map(r=>r.id), timestamp: now }));
-          setTrendingRecs(shuffled);
-          setLastUpdated('Just now');
-        }
-      } catch { setTrendingRecs(ALL_RECS.slice(0, 5)); setLastUpdated(''); }
-    })();
-  }, []);
-
-  const loadPasswords = async () => { const list = await getPasswordsList(); setPasswordCount(list.length); };
-  useFocusEffect(useCallback(() => { loadPasswords(); }, []));
-
-  const notesItems = state.items.filter(i => i.type === 'note');
-  const linksItems = state.items.filter(i => i.type === 'link');
-  const recentNotes = notesItems.slice(0, 3);
-  const recentLinks = linksItems.slice(0, 5);
-
-  const fabRotation = animation.interpolate({ inputRange: [0,1], outputRange: ['0deg','45deg'] });
-  const actionItemStyle = (index) => ({
-    opacity: animation,
-    transform: [
-      { translateY: animation.interpolate({ inputRange:[0,1], outputRange:[0,-70*index] }) },
-      { scale: animation.interpolate({ inputRange:[0,1], outputRange:[0,1] }) },
-    ],
-  });
-
-  const shareQuote = async () => {
-    try { await Share.share({ message: `"${dailyQuote.text}" — ${dailyQuote.author}` }); } catch {}
+  // Daily quote logic - Change every 24 hours
+  const checkDailyQuote = async () => {
+    try {
+      const today = new Date().toDateString();
+      const saved = await AsyncStorage.getItem(DAILY_QUOTE_KEY);
+      const parsed = saved ? JSON.parse(saved) : null;
+      
+      if (parsed && parsed.date === today) {
+        setDailyQuote(QUOTES[parsed.index % QUOTES.length]);
+      } else {
+        const prevIdx = parsed ? parsed.index : -1;
+        let newIdx;
+        do {
+          newIdx = Math.floor(Math.random() * QUOTES.length);
+        } while (newIdx === prevIdx && QUOTES.length > 1);
+        
+        await AsyncStorage.setItem(DAILY_QUOTE_KEY, JSON.stringify({ index: newIdx, date: today }));
+        setDailyQuote(QUOTES[newIdx]);
+      }
+      
+      Animated.parallel([
+        Animated.timing(quoteFade, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 800, useNativeDriver: true })
+      ]).start();
+    } catch { 
+      setDailyQuote(QUOTES[0]); 
+    }
   };
 
-  const renderRecCard = (item) => {
-    const topicColor = TOPIC_COLORS[item.topic] || THEME.colors.highlight;
+  // Trending auto-refresh (1 hour cache)
+  const checkTrendingFeed = async (force = false) => {
+    try {
+      const [saved, savedInterests] = await Promise.all([
+        AsyncStorage.getItem(TRENDING_CACHE_KEY),
+        AsyncStorage.getItem('@user_interests')
+      ]);
+      
+      const parsed = saved ? JSON.parse(saved) : null;
+      const userInterests = savedInterests ? JSON.parse(savedInterests) : [];
+      const now = Date.now();
+      const ONE_HOUR = 3600000;
+
+      let sourceList = ALL_RECS;
+      if (userInterests.length > 0) {
+        const filtered = ALL_RECS.filter(r => 
+          userInterests.some(interest => r.topic.includes(interest) || r.topic === interest)
+        );
+        if (filtered.length > 0) sourceList = filtered;
+      }
+
+
+      if (!force && parsed && (now - parsed.timestamp < ONE_HOUR)) {
+        const ids = parsed.order;
+        const mapped = ids.map(id => sourceList.find(r => r.id === id)).filter(Boolean);
+        setTrendingRecs(mapped.length > 0 ? mapped : sourceList.slice(0, 5));
+        
+        const mins = Math.floor((now - parsed.timestamp) / 60000);
+        setLastUpdated(mins < 1 ? 'Just now' : `${mins}m ago`);
+      } else {
+        const shuffled = shuffle(sourceList);
+        await AsyncStorage.setItem(TRENDING_CACHE_KEY, JSON.stringify({ 
+          order: shuffled.map(r=>r.id), 
+          timestamp: now 
+        }));
+        setTrendingRecs(shuffled);
+        setLastUpdated('Updated now');
+      }
+    } catch (e) { 
+      setTrendingRecs(ALL_RECS.slice(0, 5)); 
+      setLastUpdated('Live');
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await Promise.all([
+      loadProfile(),
+      checkTrendingFeed(true),
+      loadPasswords()
+    ]);
+    setRefreshing(false);
+  }, []);
+
+  const loadPasswords = async () => { 
+    const list = await getPasswordsList(); 
+    setPasswordCount(list.length); 
+  };
+
+  const handleOpenLink = async (url) => {
+    if (!url) return;
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        // Fallback for malformed URLs
+        const fixedUrl = url.startsWith('http') ? url : `https://${url}`;
+        await Linking.openURL(fixedUrl);
+      }
+    } catch (error) {
+      Alert.alert("Link Error", "Could not open this URL. It might be invalid.");
+    }
+  };
+
+  const shareQuote = async (platform) => {
+    const text = `"${dailyQuote.text}" — ${dailyQuote.author}\n\nShared via SaynIQ: Your AI Second Brain`;
+    const encodedText = encodeURIComponent(text);
+    setShareModalVisible(false);
+
+    try {
+      if (platform === 'whatsapp') {
+        await Linking.openURL(`whatsapp://send?text=${encodedText}`);
+      } else if (platform === 'instagram') {
+        // Instagram doesn't support direct text sharing to stories via deep link without media.
+        // We fallback to native share but with a specialized message.
+        await Share.share({ message: text });
+      } else if (platform === 'facebook') {
+        await Share.share({ message: text });
+      } else {
+        await Share.share({ message: text });
+      }
+    } catch (e) {
+      // Fallback if app is not installed
+      await Share.share({ message: text });
+    }
+  };
+
+
+  const renderShareModal = () => (
+    <Modal
+      visible={shareModalVisible}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShareModalVisible(false)}
+    >
+      <TouchableOpacity 
+        style={styles.modalOverlay} 
+        activeOpacity={1} 
+        onPress={() => setShareModalVisible(false)}
+      >
+        <View style={[styles.shareModal, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+          <View style={[styles.modalHandle, { backgroundColor: theme.colors.border }]} />
+          <Text style={[styles.modalTitle, { color: theme.colors.textPrimary }]}>Share Inspiration</Text>
+          <Text style={[styles.modalSubtitle, { color: theme.colors.textSecondary }]}>Spread the wisdom with your network</Text>
+          
+          <View style={styles.shareOptions}>
+            {[
+              { id: 'whatsapp', label: 'WhatsApp Status', icon: 'logo-whatsapp', color: '#25D366' },
+              { id: 'instagram', label: 'Instagram Stories', icon: 'logo-instagram', color: '#E1306C' },
+              { id: 'facebook', label: 'Facebook Post', icon: 'logo-facebook', color: '#1877F2' },
+              { id: 'native', label: 'More Options', icon: 'share-social', color: theme.colors.primary },
+            ].map(item => (
+              <TouchableOpacity 
+                key={item.id} 
+                style={[styles.shareBtn, { backgroundColor: theme.colors.cardSecondary }]}
+                onPress={() => shareQuote(item.id)}
+              >
+                <View style={[styles.shareIconBox, { backgroundColor: `${item.color}20` }]}>
+                  <Ionicons name={item.icon} size={24} color={item.color} />
+                </View>
+                <Text style={[styles.shareLabel, { color: theme.colors.textPrimary }]}>{item.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Modal>
+  );
+
+
+  const getTimeRemaining = (dateString) => {
+    const diff = new Date(dateString) - new Date();
+    if (diff <= 0) return 'Due now';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    if (hours < 1) return 'Soon';
+    if (hours < 24) return `${hours}h left`;
+    const days = Math.floor(hours / 24);
+    return `${days}d left`;
+  };
+
+  const renderAlertSection = () => {
+    const alerts = state.items.filter(item => item.alertType || item.reminderDate).slice(0, 5);
+    if (alerts.length === 0) return null;
+
     return (
-      <TouchableOpacity key={item.id} style={styles.recCard} onPress={() => Linking.openURL(item.url)} activeOpacity={0.88}>
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Upcoming Reminders</Text>
+          <Ionicons name="notifications-outline" size={20} color={theme.colors.primary} />
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.alertScroll}>
+          {alerts.map(item => (
+            <TouchableOpacity 
+              key={item.id} 
+              style={[styles.alertCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}
+              onPress={() => navigation.navigate('Notes', { scrollToId: item.id })}
+            >
+              <View style={[styles.alertIconBox, { backgroundColor: theme.colors.cardSecondary }]}>
+                <Ionicons 
+                  name={item.alertType === 'Watch Important' ? 'logo-youtube' : (item.alertType === 'Read Later' ? 'book' : 'notifications')} 
+                  size={18} 
+                  color={theme.colors.primary} 
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.alertCardTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>{item.title}</Text>
+                <View style={styles.alertMeta}>
+                  <Text style={[styles.alertBadgeText, { color: theme.colors.primary }]}>{item.alertType || 'Reminder'}</Text>
+                  {item.reminderDate && (
+                    <Text style={[styles.alertTime, { color: theme.colors.highlight }]}>
+                      • {getTimeRemaining(item.reminderDate)}
+                    </Text>
+                  )}
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate('Notes', { scrollToId: item.id })} style={styles.quickOpenBtn}>
+                <Ionicons name="chevron-forward" size={16} color={theme.colors.textSecondary} />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+  };
+
+
+  const renderRecCard = (item) => {
+
+    const topicColor = TOPIC_COLORS[item.topic] || theme.colors.highlight;
+    return (
+      <TouchableOpacity key={item.id} style={[styles.recCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={() => handleOpenLink(item.url)} activeOpacity={0.8}>
+
         <View style={styles.recHeaderRow}>
           <Text style={[styles.recTopic, { color: topicColor }]}>{item.topic}</Text>
           {item.isTrending && (
-            <View style={styles.trendingBadge}>
-              <Ionicons name="trending-up" size={11} color={THEME.colors.textDark} />
-              <Text style={styles.trendingText}>Trending</Text>
+            <View style={[styles.trendingBadge, { backgroundColor: theme.colors.primary }]}>
+              <Ionicons name="trending-up" size={11} color={theme.colors.textDark} />
+              <Text style={[styles.trendingText, { color: theme.colors.textDark }]}>Trending</Text>
             </View>
           )}
         </View>
-        <Text style={styles.recTitle} numberOfLines={3}>{item.title}</Text>
-        <Text style={styles.recPreview} numberOfLines={2}>{item.preview}</Text>
+        <Text style={[styles.recTitle, { color: theme.colors.textPrimary }]} numberOfLines={3}>{item.title}</Text>
+        <Text style={[styles.recPreview, { color: theme.colors.textSecondary }]} numberOfLines={2}>{item.preview}</Text>
         <View style={styles.recFooter}>
           <View style={styles.recSourceRow}>
-            <Ionicons name="globe-outline" size={13} color={THEME.colors.textSecondary} />
-            <Text style={styles.recSource}>{item.source}</Text>
+            <Ionicons name="globe-outline" size={13} color={theme.colors.textSecondary} />
+            <Text style={[styles.recSource, { color: theme.colors.textSecondary }]}>{item.source}</Text>
           </View>
           <View style={styles.recReadRow}>
-            <Ionicons name="time-outline" size={13} color={THEME.colors.textSecondary} />
-            <Text style={styles.recReadTime}>{item.readTime}</Text>
+            <Ionicons name="time-outline" size={13} color={theme.colors.textSecondary} />
+            <Text style={[styles.recReadTime, { color: theme.colors.textSecondary }]}>{item.readTime}</Text>
           </View>
         </View>
-        <View style={styles.recAiBox}>
-          <Ionicons name="sparkles" size={13} color={THEME.colors.primary} />
-          <Text style={styles.recAiText} numberOfLines={1}>{item.aiReason}</Text>
+        <View style={[styles.recAiBox, { backgroundColor: `${theme.colors.primary}10` }]}>
+          <Ionicons name="sparkles" size={13} color={theme.colors.primary} />
+          <Text style={[styles.recAiText, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.aiReason}</Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  const renderLinkCard = (item) => (
-    <TouchableOpacity key={item.id} style={styles.linkCard} onPress={() => Linking.openURL(item.url)} activeOpacity={0.88}>
-      {item.thumbnail ? (
-        <Image source={{ uri: item.thumbnail }} style={styles.linkThumbnail} />
-      ) : (
-        <View style={styles.linkIconFallback}>
-          <Ionicons name="link" size={24} color={THEME.colors.highlight} />
-        </View>
-      )}
-      <View style={styles.linkContent}>
-        <Text style={styles.linkTitle} numberOfLines={2}>{item.title || item.url}</Text>
-        <Text style={styles.linkDomain} numberOfLines={1}>{item.domain || 'External'}</Text>
-        <View style={styles.linkFooterRow}>
-          <Text style={styles.linkCategory}>{item.category || 'General'}</Text>
-          {item.summary && <Ionicons name="sparkles" size={13} color={THEME.colors.primary} />}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+  const notesItems = (state.items || []).filter(i => i.type === 'note');
+  const linksItems = (state.items || []).filter(i => i.type === 'link');
+  const recentNotes = notesItems.slice(0, 3);
+
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={[styles.blob, styles.blobTop]} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
+      {renderShareModal()}
+      <View style={[styles.blob, { backgroundColor: theme.colors.primary }]} />
+
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.primary} />
+        }
+      >
 
         {/* HERO HEADER */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.greeting}>{greeting},</Text>
-            <Text style={styles.headerTitle}>{profileName} 👋</Text>
+            <Text style={[styles.greeting, { color: theme.colors.textSecondary }]}>{greeting},</Text>
+            <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>{profileName} 👋</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('About')} style={styles.iconBtn}>
-            <Ionicons name="settings-sharp" size={22} color={THEME.colors.textPrimary} />
+          <TouchableOpacity onPress={() => navigation.navigate('About')} style={[styles.iconBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <Ionicons name="person-circle-outline" size={26} color={theme.colors.primary} />
           </TouchableOpacity>
         </View>
 
-        {/* DAILY QUOTE */}
-        <Animated.View style={[styles.heroCard, { opacity: quoteFade }]}>
+        {/* PREMIUM DAILY QUOTE */}
+        <Animated.View style={[styles.heroCard, { opacity: quoteFade, transform: [{ translateY: slideAnim }], backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
           <View style={styles.heroTextContainer}>
             <View style={styles.quoteHeaderRow}>
-              <Text style={styles.heroLabel}>💡 Quote of the Day</Text>
-              <TouchableOpacity onPress={shareQuote} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                <Ionicons name="share-outline" size={18} color={THEME.colors.textSecondary} />
+              <Text style={[styles.heroLabel, { color: theme.colors.primary }]}>💡 Daily Inspiration</Text>
+              <TouchableOpacity onPress={() => setShareModalVisible(true)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+                <Ionicons name="share-outline" size={18} color={theme.colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.heroTitle}>"{dailyQuote.text}"</Text>
-            <Text style={styles.quoteAuthor}>— {dailyQuote.author}</Text>
+
+            <Text style={[styles.heroTitle, { color: theme.colors.textPrimary }]}>"{dailyQuote.text}"</Text>
+            <View style={styles.quoteAuthorRow}>
+              <View style={[styles.authorLine, { backgroundColor: theme.colors.primary }]} />
+              <Text style={[styles.quoteAuthor, { color: theme.colors.textSecondary }]}>{dailyQuote.author}</Text>
+            </View>
           </View>
-          <Ionicons name="planet" size={48} color={THEME.colors.primary} style={styles.heroIcon} />
+          <View style={styles.heroIconWrapper}>
+             <Ionicons name="planet" size={54} color={theme.colors.primary} />
+          </View>
         </Animated.View>
 
         {/* QUICK ACTIONS */}
         <View style={styles.quickActionsRow}>
-          <TouchableOpacity style={[styles.actionChip, { backgroundColor: THEME.colors.primary }]} onPress={() => navigation.navigate('AI Chat')}>
-            <Ionicons name="sparkles" size={18} color={THEME.colors.textDark} />
-            <Text style={[styles.actionChipText, { color: THEME.colors.textDark }]}>Ask AI</Text>
+          <TouchableOpacity style={[styles.actionChip, { backgroundColor: theme.colors.primary }]} onPress={() => navigation.navigate('SaynIQ')}>
+            <Ionicons name="sparkles" size={18} color={theme.colors.textDark} />
+            <Text style={[styles.actionChipText, { color: theme.colors.textDark }]}>Ask AI</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionChip} onPress={() => navigation.navigate('AddItem')}>
-            <Ionicons name="add-circle" size={18} color={THEME.colors.primary} />
-            <Text style={styles.actionChipText}>Add Note</Text>
+          <TouchableOpacity style={[styles.actionChip, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={() => navigation.navigate('AddItem')}>
+            <Ionicons name="add-circle" size={18} color={theme.colors.primary} />
+            <Text style={[styles.actionChipText, { color: theme.colors.textPrimary }]}>Add Note</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionChip} onPress={() => navigation.navigate('AddItem', { forceType: 'link' })}>
-            <Ionicons name="link" size={18} color={THEME.colors.primary} />
-            <Text style={styles.actionChipText}>Save URL</Text>
+          <TouchableOpacity style={[styles.actionChip, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={() => navigation.navigate('AddLink')}>
+            <Ionicons name="link" size={18} color={theme.colors.primary} />
+            <Text style={[styles.actionChipText, { color: theme.colors.textPrimary }]}>Save URL</Text>
           </TouchableOpacity>
         </View>
+        
+        {renderAlertSection()}
 
-        {/* OVERVIEW */}
-        <Text style={styles.sectionTitle}>Overview</Text>
+
+        {/* OVERVIEW GRID */}
+
+        <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Overview</Text>
         <View style={styles.gridRow}>
           {[
-            { icon:'document-text', color:THEME.colors.primary, count:notesItems.length, label:'Notes' },
-            { icon:'link', color:THEME.colors.highlight, count:linksItems.length, label:'Links' },
-            { icon:'key', color:THEME.colors.warning, count:passwordCount, label:'Passwords' },
-            { icon:'flame', color:THEME.colors.danger, count:3, label:'Streak' },
+            { icon:'document-text', color:theme.colors.primary, count:notesItems.length, label:'Notes' },
+            { icon:'link', color:theme.colors.highlight, count:linksItems.length, label:'Links' },
+            { icon:'key', color:theme.colors.warning, count:passwordCount, label:'Vault' },
+            { icon:'flame', color:theme.colors.danger, count:state.appStreak, label:'Streak' },
+
           ].map(({ icon, color, count, label }) => (
-            <View key={label} style={styles.gridItem}>
-              <View style={[styles.iconWrapper, { backgroundColor: THEME.colors.cardSecondary }]}>
+            <View key={label} style={[styles.gridItem, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+              <View style={[styles.iconWrapper, { backgroundColor: `${color}15` }]}>
                 <Ionicons name={icon} size={20} color={color} />
               </View>
-              <Text style={styles.gridNumber}>{count}</Text>
-              <Text style={styles.gridLabel}>{label}</Text>
+              <Text style={[styles.gridNumber, { color: theme.colors.textPrimary }]}>{count}</Text>
+              <Text style={[styles.gridLabel, { color: theme.colors.textSecondary }]}>{label}</Text>
             </View>
           ))}
         </View>
 
-        {/* TRENDING */}
+        {/* TRENDING SECTION */}
         <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Trending in Tech</Text>
-          <View style={styles.trendingMeta}>
-            {lastUpdated ? <Text style={styles.lastUpdatedText}>{lastUpdated}</Text> : null}
-            <View style={styles.aiChip}>
-              <Ionicons name="sparkles" size={13} color={THEME.colors.textDark} />
-              <Text style={styles.aiChipText}>AI Picks</Text>
-            </View>
+          <View>
+            <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Trending Tech</Text>
+            {lastUpdated ? <Text style={[styles.lastUpdatedText, { color: theme.colors.textSecondary }]}>Refresh: {lastUpdated}</Text> : null}
+          </View>
+          <View style={[styles.aiChip, { backgroundColor: theme.colors.primary }]}>
+            <Ionicons name="flash" size={12} color={theme.colors.textDark} />
+            <Text style={[styles.aiChipText, { color: theme.colors.textDark }]}>Live Feed</Text>
           </View>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScrollContent}>
-          {trendingRecs.map(renderRecCard)}
+          {trendingRecs.length > 0 ? trendingRecs.map(renderRecCard) : <ActivityIndicator color={theme.colors.primary} style={{ marginLeft: 20 }} />}
         </ScrollView>
 
-        {/* SAVED RESOURCES */}
-        <View style={[styles.sectionHeaderRow, { marginTop: THEME.spacing.lg }]}>
-          <Text style={styles.sectionTitle}>Saved Resources</Text>
+        {/* RECENT ACTIVITY */}
+        <View style={[styles.sectionHeaderRow, { marginTop: 32 }]}>
+          <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Recent Notes</Text>
           <TouchableOpacity onPress={() => navigation.navigate('Notes')}>
-            <Text style={styles.seeAllText}>See all →</Text>
+            <Text style={[styles.seeAllText, { color: theme.colors.primary }]}>See all →</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hScrollContent}>
-          {recentLinks.length > 0 ? (
-            recentLinks.map(renderLinkCard)
-          ) : (
-            <View style={styles.emptyHorizontal}>
-              <Ionicons name="bookmark-outline" size={30} color={THEME.colors.textSecondary} />
-              <Text style={styles.emptyText}>No links saved yet.</Text>
-            </View>
-          )}
-        </ScrollView>
-
-        {/* RECENT NOTES */}
-        <View style={[styles.sectionHeaderRow, { marginTop: THEME.spacing.lg }]}>
-          <Text style={styles.sectionTitle}>Recent Notes</Text>
-        </View>
+        
         {recentNotes.length > 0 ? (
           recentNotes.map(item => <ItemCard key={item.id} item={item} />)
         ) : (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color={THEME.colors.border} />
-            <Text style={styles.emptyText}>No notes yet — start your second brain!</Text>
+          <View style={[styles.emptyState, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+            <Ionicons name="document-text-outline" size={40} color={theme.colors.border} />
+            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>Your second brain is waiting for its first note.</Text>
           </View>
         )}
-        <View style={{ height: 140 }} />
+        
+        <View style={{ height: 120 }} />
       </ScrollView>
-
-      {/* FAB */}
-      <View style={[styles.fabContainer, { bottom: insets.bottom + 90 }]}>
-        <Animated.View style={[styles.fabMenuBtn, actionItemStyle(2)]}>
-          <Text style={styles.fabSubLabel}>Password</Text>
-          <TouchableOpacity onPress={() => { toggleFab(); navigation.navigate('AddPassword'); }} style={styles.fabSubBtn}>
-            <Ionicons name="key" size={22} color={THEME.colors.textPrimary} />
-          </TouchableOpacity>
-        </Animated.View>
-        <Animated.View style={[styles.fabMenuBtn, actionItemStyle(1)]}>
-          <Text style={styles.fabSubLabel}>Note / Link</Text>
-          <TouchableOpacity onPress={() => { toggleFab(); navigation.navigate('AddItem'); }} style={styles.fabSubBtn}>
-            <Ionicons name="document-text" size={22} color={THEME.colors.textPrimary} />
-          </TouchableOpacity>
-        </Animated.View>
-        <TouchableOpacity style={styles.fabMainBtn} onPress={toggleFab} activeOpacity={0.8}>
-          <Animated.View style={{ transform: [{ rotate: fabRotation }] }}>
-            <Ionicons name="add" size={34} color={THEME.colors.textDark} />
-          </Animated.View>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: THEME.colors.background },
-  blob:         { position: 'absolute', width: width * 1.2, height: width * 1.2, borderRadius: 9999, opacity: 0.1, backgroundColor: THEME.colors.primary },
-  blobTop:      { top: -width * 0.6, right: -width * 0.3 },
-  scrollContent: { paddingHorizontal: THEME.spacing.lg },
+  container:    { flex: 1 },
+  blob:         { position: 'absolute', width: width * 1.2, height: width * 1.2, borderRadius: 9999, opacity: 0.1, top: -width * 0.6, right: -width * 0.3 },
+  scrollContent: { paddingHorizontal: 24, paddingBottom: 40 },
 
-  headerRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: THEME.spacing.md, marginBottom: THEME.spacing.lg },
-  greeting:     { color: THEME.colors.textSecondary, fontSize: 15, fontWeight: '500' },
-  headerTitle:  { fontSize: 30, fontWeight: '800', color: THEME.colors.textPrimary, letterSpacing: -0.5, marginTop: 2 },
-  iconBtn:      { width: 48, height: 48, borderRadius: 24, backgroundColor: THEME.colors.cardSecondary, justifyContent: 'center', alignItems: 'center' },
+  headerRow:    { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, marginBottom: 24 },
+  greeting:     { fontSize: 15, fontWeight: '600' },
+  headerTitle:  { fontSize: 32, fontWeight: '800', letterSpacing: -0.5, marginTop: 2 },
+  iconBtn:      { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
 
   heroCard: {
-    backgroundColor: THEME.colors.card, borderRadius: THEME.borderRadius.lg, padding: THEME.spacing.lg,
-    marginBottom: THEME.spacing.xl, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
-    borderWidth: 1, borderColor: 'rgba(215,230,90,0.08)',
+    borderRadius: 28, padding: 24, marginBottom: 32, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 15, elevation: 10,
+    borderWidth: 1, overflow: 'hidden',
   },
-  heroTextContainer: { flex: 1, paddingRight: 12 },
-  quoteHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  heroLabel:   { color: THEME.colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  heroTitle:   { color: THEME.colors.textPrimary, fontSize: 17, fontWeight: '800', lineHeight: 25, marginBottom: 6 },
-  quoteAuthor: { color: THEME.colors.primary, fontSize: 13, fontWeight: '700' },
-  heroIcon:    { opacity: 0.85 },
+  heroTextContainer: { flex: 1, paddingRight: 10 },
+  quoteHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  heroLabel:   { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.2 },
+  heroTitle:   { fontSize: 18, fontWeight: '800', lineHeight: 26, marginBottom: 12, fontStyle: 'italic' },
+  quoteAuthorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  authorLine: { width: 15, height: 2, opacity: 0.6 },
+  quoteAuthor: { fontSize: 14, fontWeight: '700' },
+  heroIconWrapper: { opacity: 0.8, transform: [{ rotate: '15deg' }] },
 
-  quickActionsRow: { flexDirection: 'row', marginBottom: THEME.spacing.xl, gap: 8 },
-  actionChip:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: THEME.colors.card, paddingVertical: 14, borderRadius: THEME.borderRadius.xl, gap: 6 },
-  actionChipText: { color: THEME.colors.textPrimary, fontWeight: '700', fontSize: 13 },
+  quickActionsRow: { flexDirection: 'row', marginBottom: 32, gap: 10 },
+  actionChip:  { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 20, gap: 6, borderWidth: 1 },
+  actionChipText: { fontWeight: '800', fontSize: 13 },
 
-  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: THEME.spacing.md, marginTop: THEME.spacing.sm },
-  sectionTitle: { color: THEME.colors.textPrimary, fontSize: 20, fontWeight: '800' },
-  seeAllText:   { color: THEME.colors.primary, fontSize: 14, fontWeight: '700' },
-  trendingMeta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lastUpdatedText: { color: THEME.colors.textSecondary, fontSize: 11, fontWeight: '600' },
-  aiChip:       { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME.colors.primary, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, gap: 4 },
-  aiChipText:   { color: THEME.colors.textDark, fontSize: 12, fontWeight: '800' },
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, marginTop: 8 },
+  sectionTitle: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
+  seeAllText:   { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  lastUpdatedText: { fontSize: 11, fontWeight: '600', marginTop: 2 },
+  aiChip:       { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, gap: 4 },
+  aiChipText:   { fontSize: 11, fontWeight: '900', textTransform: 'uppercase' },
 
-  gridRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: THEME.spacing.lg, gap: 10 },
+  gridRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, gap: 10 },
   gridItem: {
-    flex: 1, alignItems: 'center', backgroundColor: THEME.colors.card,
-    paddingVertical: THEME.spacing.md, borderRadius: THEME.borderRadius.md,
-    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 8, elevation: 4,
+    flex: 1, alignItems: 'center',
+    paddingVertical: 24, borderRadius: 24,
+    borderWidth: 1,
   },
-  iconWrapper:  { padding: 10, borderRadius: 16, marginBottom: 8 },
-  gridNumber:   { color: THEME.colors.textPrimary, fontSize: 20, fontWeight: '800' },
-  gridLabel:    { color: THEME.colors.textSecondary, fontSize: 12, fontWeight: '600', marginTop: 2 },
+  iconWrapper:  { padding: 10, borderRadius: 16, marginBottom: 10 },
+  gridNumber:   { fontSize: 22, fontWeight: '900' },
+  gridLabel:    { fontSize: 11, fontWeight: '700', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
 
-  hScrollContent: { paddingBottom: 12, paddingRight: 24 },
+  hScrollContent: { paddingBottom: 10, paddingRight: 20 },
 
   recCard: {
-    width: 260, backgroundColor: THEME.colors.card, borderRadius: THEME.borderRadius.lg,
-    marginRight: 16, padding: 16, borderWidth: 1, borderColor: THEME.colors.border,
-    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 10, elevation: 5,
+    width: 280, borderRadius: 24, marginRight: 16, padding: 20, borderWidth: 1,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, elevation: 5,
   },
-  recHeaderRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  recTopic:      { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
-  trendingBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME.colors.primary, paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20, gap: 3 },
-  trendingText:  { color: THEME.colors.textDark, fontSize: 10, fontWeight: '800' },
-  recTitle:      { color: THEME.colors.textPrimary, fontSize: 15, fontWeight: '800', lineHeight: 22, marginBottom: 8 },
-  recPreview:    { color: THEME.colors.textSecondary, fontSize: 13, lineHeight: 19, marginBottom: 12 },
-  recFooter:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  recSourceRow:  { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  recSource:     { color: THEME.colors.textSecondary, fontSize: 12, fontWeight: '600' },
-  recReadRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  recReadTime:   { color: THEME.colors.textSecondary, fontSize: 12, fontWeight: '600' },
-  recAiBox:      { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME.colors.cardSecondary, padding: 8, borderRadius: 10, gap: 6 },
-  recAiText:     { color: THEME.colors.textSecondary, fontSize: 12, lineHeight: 16, flex: 1 },
+  recHeaderRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  recTopic:      { fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  trendingBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, gap: 4 },
+  trendingText:  { fontSize: 10, fontWeight: '900' },
+  recTitle:      { fontSize: 16, fontWeight: '800', lineHeight: 24, marginBottom: 10 },
+  recPreview:    { fontSize: 13, lineHeight: 20, marginBottom: 16 },
+  recFooter:     { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14, opacity: 0.8 },
+  recSourceRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  recSource:     { fontSize: 12, fontWeight: '700' },
+  recReadRow:    { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  recReadTime:   { fontSize: 12, fontWeight: '700' },
+  recAiBox:      { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, gap: 8 },
+  recAiText:     { fontSize: 12, fontWeight: '600', lineHeight: 18, flex: 1 },
 
-  linkCard: { width: 200, backgroundColor: THEME.colors.card, borderRadius: THEME.borderRadius.lg, marginRight: 14, overflow: 'hidden', borderWidth: 1, borderColor: THEME.colors.border },
-  linkThumbnail: { width: '100%', height: 95, backgroundColor: THEME.colors.background },
-  linkIconFallback: { width: '100%', height: 95, backgroundColor: THEME.colors.background, justifyContent: 'center', alignItems: 'center' },
-  linkContent:   { padding: 12 },
-  linkTitle:     { color: THEME.colors.textPrimary, fontSize: 14, fontWeight: '700', marginBottom: 4, lineHeight: 20 },
-  linkDomain:    { color: THEME.colors.textSecondary, fontSize: 12, marginBottom: 8 },
-  linkFooterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  linkCategory:  { color: THEME.colors.textSecondary, fontSize: 12, fontWeight: '600' },
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end',
+  },
+  shareModal: {
+    padding: 32, borderTopLeftRadius: 32, borderTopRightRadius: 32, borderWidth: 1, borderBottomWidth: 0,
+    shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 20, elevation: 20,
+  },
+  modalHandle: {
+    width: 40, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 24, opacity: 0.5,
+  },
+  modalTitle: { fontSize: 24, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
+  modalSubtitle: { fontSize: 14, textAlign: 'center', marginBottom: 32 },
+  shareOptions: { gap: 12 },
+  shareBtn: {
+    flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, gap: 16,
+  },
+  shareIconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  shareLabel: { fontSize: 16, fontWeight: '700' },
 
-  emptyHorizontal: { width: width - 48, alignItems: 'center', justifyContent: 'center', paddingVertical: 36, backgroundColor: THEME.colors.card, borderRadius: THEME.borderRadius.lg, borderWidth: 1, borderColor: THEME.colors.border },
-  emptyState:  { alignItems: 'center', justifyContent: 'center', paddingVertical: 50, backgroundColor: THEME.colors.card, borderRadius: THEME.borderRadius.lg, borderWidth: 1, borderColor: THEME.colors.border },
-  emptyText:   { color: THEME.colors.textSecondary, marginTop: 10, fontSize: 14, fontWeight: '500' },
-
-  fabContainer: { position: 'absolute', right: 20, alignItems: 'flex-end', zIndex: 10 },
-  fabMainBtn:   { width: 62, height: 62, borderRadius: 31, backgroundColor: THEME.colors.primary, justifyContent: 'center', alignItems: 'center', shadowColor: THEME.colors.primary, shadowOpacity: 0.4, shadowRadius: 12, elevation: 10 },
-  fabMenuBtn:   { position: 'absolute', flexDirection: 'row', alignItems: 'center', right: 4, bottom: 4 },
-  fabSubBtn:    { width: 54, height: 54, borderRadius: 27, backgroundColor: THEME.colors.cardSecondary, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
-  fabSubLabel:  { color: THEME.colors.textPrimary, backgroundColor: THEME.colors.card, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, marginRight: 14, fontSize: 14, fontWeight: '700', overflow: 'hidden' },
+  section: { marginTop: 24 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 16 },
+  alertScroll: { paddingHorizontal: 20, gap: 12, paddingBottom: 10 },
+  alertCard: { 
+    width: 240, flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 20, borderWidth: 1, gap: 12,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2
+  },
+  alertIconBox: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  alertCardTitle: { fontSize: 13, fontWeight: '800', marginBottom: 2 },
+  alertMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  alertBadgeText: { fontSize: 10, fontWeight: '900', textTransform: 'uppercase' },
+  alertTime: { fontSize: 10, fontWeight: '800' },
+  quickOpenBtn: { width: 30, height: 30, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
 });
+
+
+
+
+

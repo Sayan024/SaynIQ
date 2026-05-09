@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useContext } from 'react';
 import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
-import { THEME } from '../styles/theme';
+import { VaultContext } from '../context/VaultContext';
 
 export default function Button({ 
   title, 
@@ -10,23 +10,26 @@ export default function Button({
   textStyle,
   icon
 }) {
+  const { state } = useContext(VaultContext);
+  const theme = state.theme;
+
   const isPrimary = variant === 'primary';
   const isSecondary = variant === 'secondary';
   const isOutline = variant === 'outline';
 
   const containerStyle = [
     styles.button,
-    isPrimary && styles.primaryButton,
-    isSecondary && styles.secondaryButton,
-    isOutline && styles.outlineButton,
+    isPrimary && { backgroundColor: theme.colors.primary },
+    isSecondary && { backgroundColor: theme.colors.cardSecondary },
+    isOutline && { backgroundColor: 'transparent', borderWidth: 2, borderColor: theme.colors.border, shadowOpacity: 0, elevation: 0 },
     style
   ];
 
   const titleStyle = [
     styles.text,
-    isPrimary && styles.primaryText,
-    isSecondary && styles.secondaryText,
-    isOutline && styles.outlineText,
+    isPrimary && { color: theme.colors.textDark },
+    isSecondary && { color: theme.colors.textPrimary },
+    isOutline && { color: theme.colors.textPrimary },
     textStyle
   ];
 
@@ -46,7 +49,7 @@ export default function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: THEME.borderRadius.xl,
+    borderRadius: 24,
     paddingVertical: 18,
     paddingHorizontal: 32,
     justifyContent: 'center',
@@ -72,30 +75,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
-  },
-  // Primary (Lime background, dark text)
-  primaryButton: {
-    backgroundColor: THEME.colors.primary,
-  },
-  primaryText: {
-    color: THEME.colors.textDark,
-  },
-  // Secondary (Soft Purple background, white text)
-  secondaryButton: {
-    backgroundColor: THEME.colors.cardSecondary,
-  },
-  secondaryText: {
-    color: THEME.colors.textPrimary,
-  },
-  // Outline (Transparent with border)
-  outlineButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: THEME.colors.border,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  outlineText: {
-    color: THEME.colors.textPrimary,
-  },
+  }
 });
+

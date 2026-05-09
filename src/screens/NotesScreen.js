@@ -1,4 +1,6 @@
 import React, { useContext, useState, useRef, useEffect, useCallback } from 'react';
+import { useNavigation } from '@react-navigation/native';
+
 import {
   View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity,
   Modal, Dimensions, ScrollView, Animated
@@ -16,7 +18,10 @@ const SORT_OPTIONS = ['Newest', 'Oldest'];
 const FILTER_DEFAULTS = { hasSummary: false, favourites: false, sort: 'Newest' };
 
 export default function NotesScreen() {
+  const navigation = useNavigation();
   const { state }   = useContext(VaultContext);
+
+  const theme = state.theme;
   const insets      = useSafeAreaInsets();
 
   const [searchQuery,   setSearchQuery]   = useState('');
@@ -68,66 +73,97 @@ export default function NotesScreen() {
 
   const EmptyComponent = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="layers-outline" size={70} color={THEME.colors.cardSecondary} />
-      <Text style={styles.emptyTitle}>
+      <Ionicons name="layers-outline" size={70} color={theme.colors.cardSecondary} />
+      <Text style={[styles.emptyTitle, { color: theme.colors.textPrimary }]}>
         {debouncedQ ? 'No results found' : activeTab === 'All' ? 'Your vault is empty' : `No ${activeTab} yet`}
       </Text>
-      <Text style={styles.emptySubtitle}>
+      <Text style={[styles.emptySubtitle, { color: theme.colors.textSecondary }]}>
         {debouncedQ ? 'Try a different search term' : 'Start adding content from the home screen.'}
       </Text>
     </View>
   );
 
+  const renderQuickActions = () => (
+    <View style={styles.quickActions}>
+      <TouchableOpacity 
+        style={[styles.actionCard, { backgroundColor: theme.colors.primary }]} 
+        onPress={() => navigation.navigate('AddItem')}
+      >
+        <Ionicons name="document-text" size={18} color={theme.colors.textDark} />
+        <Text style={[styles.actionCardText, { color: theme.colors.textDark }]}>Add Note</Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={[styles.actionCard, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} 
+        onPress={() => navigation.navigate('AddLink')}
+      >
+        <Ionicons name="link" size={18} color={theme.colors.primary} />
+        <Text style={[styles.actionCardText, { color: theme.colors.textPrimary }]}>Add Link</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
+
+    <View style={[styles.container, { paddingTop: insets.top, backgroundColor: theme.colors.background }]}>
       {/* ── HEADER ── */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>Knowledge Hub</Text>
-          <Text style={styles.headerSubtitle}>{items.length} items · {state.items.filter(i => i.summary).length} summarised</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Knowledge Hub</Text>
+          <View style={styles.headerMetaRow}>
+            <Ionicons name="layers" size={12} color={theme.colors.primary} />
+            <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>{items.length} items</Text>
+            <View style={[styles.headerDot, { backgroundColor: theme.colors.textSecondary }]} />
+            <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>{(state.items || []).filter(i => i.summary).length} summarized</Text>
+          </View>
+
         </View>
-        <TouchableOpacity onPress={openSheet} style={styles.filterBtn}>
-          <Ionicons name="options" size={20} color={THEME.colors.primary} />
-          {activeFilterCount > 0 && (
-            <View style={styles.filterBadge}>
-              <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-            </View>
-          )}
+        <TouchableOpacity onPress={() => setSearchQuery('')} style={[styles.searchToggle, { backgroundColor: theme.colors.card }]}>
+          <Ionicons name="search-outline" size={22} color={theme.colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
       {/* ── SEARCH ── */}
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={18} color={THEME.colors.textSecondary} style={{ marginRight: 10 }} />
+      <View style={[styles.searchContainer, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]}>
+        <Ionicons name="search" size={18} color={theme.colors.textSecondary} style={{ marginRight: 12 }} />
         <TextInput
-          style={styles.searchInput}
-          placeholder="Search notes, links, tags…"
-          placeholderTextColor={THEME.colors.textSecondary}
+          style={[styles.searchInput, { color: theme.colors.textPrimary }]}
+          placeholder="Search your second brain…"
+          placeholderTextColor={theme.colors.textSecondary}
           value={searchQuery}
           onChangeText={setSearchQuery}
           returnKeyType="search"
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} style={{ padding: 4 }}>
-            <Ionicons name="close-circle" size={18} color={THEME.colors.textSecondary} />
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.clearSearch}>
+            <Ionicons name="close-circle" size={18} color={theme.colors.textSecondary} />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* ── TABS ── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabScrollView} contentContainerStyle={styles.tabRow}>
-        {TABS.map(tab => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tabBtn, activeTab === tab && styles.tabBtnActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>{tab}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {renderQuickActions()}
 
-      {/* ── LIST ── */}
+      {/* ── CATEGORY TABS ── */}
+
+      <View style={styles.tabContainer}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabRow}>
+          {TABS.map(tab => (
+            <TouchableOpacity
+              key={tab}
+              style={[
+                styles.tabBtn, 
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+                activeTab === tab && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
+              ]}
+              onPress={() => setActiveTab(tab)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.tabText, { color: theme.colors.textSecondary }, activeTab === tab && { color: theme.colors.textDark }]}>{tab}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* ── CONTENT LIST ── */}
       <FlatList
         data={filteredItems}
         keyExtractor={item => item.id}
@@ -137,54 +173,77 @@ export default function NotesScreen() {
         ListEmptyComponent={<EmptyComponent />}
       />
 
+      {/* ── FLOATING FILTER BUTTON ── */}
+      <TouchableOpacity 
+        style={[
+          styles.floatingFilter, 
+          { backgroundColor: theme.colors.card, borderColor: theme.colors.primary },
+          activeFilterCount > 0 && { backgroundColor: theme.colors.primary }
+        ]} 
+        onPress={openSheet}
+        activeOpacity={0.9}
+      >
+        <Ionicons name="filter" size={24} color={activeFilterCount > 0 ? theme.colors.textDark : theme.colors.primary} />
+        {activeFilterCount > 0 && (
+          <View style={[styles.filterCountBadge, { borderColor: theme.colors.primary }]}>
+            <Text style={styles.filterCountText}>{activeFilterCount}</Text>
+          </View>
+        )}
+      </TouchableOpacity>
+
       {/* ── BOTTOM-SHEET FILTER MODAL ── */}
       <Modal transparent visible={sheetVisible} animationType="none" onRequestClose={closeSheet}>
         <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={closeSheet} />
-        <Animated.View style={[styles.sheet, { transform: [{ translateY: sheetTranslateY }] }]}>
+        <Animated.View style={[styles.sheet, { backgroundColor: theme.colors.background, borderColor: theme.colors.border, transform: [{ translateY: sheetTranslateY }] }]}>
           <View style={styles.sheetHandle} />
-          <Text style={styles.sheetTitle}>Filter & Sort</Text>
+          <Text style={[styles.sheetTitle, { color: theme.colors.textPrimary }]}>Refine Vault</Text>
 
           {/* Sort */}
-          <Text style={styles.sheetSectionLabel}>Sort By</Text>
+          <Text style={[styles.sheetSectionLabel, { color: theme.colors.textSecondary }]}>Order By</Text>
           <View style={styles.chipRow}>
             {SORT_OPTIONS.map(opt => (
               <TouchableOpacity
                 key={opt}
-                style={[styles.chip, filters.sort === opt && styles.chipActive]}
+                style={[
+                  styles.chip, 
+                  { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
+                  filters.sort === opt && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }
+                ]}
                 onPress={() => setFilters(prev => ({ ...prev, sort: opt }))}
               >
-                <Text style={[styles.chipText, filters.sort === opt && styles.chipTextActive]}>{opt}</Text>
+                <Text style={[styles.chipText, { color: theme.colors.textSecondary }, filters.sort === opt && { color: theme.colors.textDark }]}>{opt}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          {/* Checkboxes */}
-          <Text style={styles.sheetSectionLabel}>Show Only</Text>
+          {/* Attributes */}
+          <Text style={[styles.sheetSectionLabel, { color: theme.colors.textSecondary }]}>Attributes</Text>
           {[
-            { key: 'hasSummary', label: 'Has AI Summary', icon: 'sparkles' },
-            { key: 'favourites', label: 'Favourites only', icon: 'bookmark' },
+            { key: 'hasSummary', label: 'AI Summarized', icon: 'sparkles' },
+            { key: 'favourites', label: 'Bookmarked Only', icon: 'bookmark' },
           ].map(({ key, label, icon }) => (
             <TouchableOpacity
               key={key}
-              style={styles.filterRow}
+              style={[styles.filterRow, { borderBottomColor: theme.colors.border }]}
               onPress={() => setFilters(prev => ({ ...prev, [key]: !prev[key] }))}
+              activeOpacity={0.7}
             >
-              <View style={styles.filterIconWrapper}>
-                <Ionicons name={icon} size={18} color={THEME.colors.primary} />
+              <View style={[styles.filterIconWrapper, { backgroundColor: theme.colors.card }]}>
+                <Ionicons name={icon} size={18} color={theme.colors.primary} />
               </View>
-              <Text style={styles.filterLabel}>{label}</Text>
-              <View style={[styles.checkbox, filters[key] && styles.checkboxActive]}>
-                {filters[key] && <Ionicons name="checkmark" size={14} color={THEME.colors.textDark} />}
+              <Text style={[styles.filterLabel, { color: theme.colors.textPrimary }]}>{label}</Text>
+              <View style={[styles.checkbox, { borderColor: theme.colors.border }, filters[key] && { backgroundColor: theme.colors.primary, borderColor: theme.colors.primary }]}>
+                {filters[key] && <Ionicons name="checkmark" size={14} color={theme.colors.textDark} />}
               </View>
             </TouchableOpacity>
           ))}
 
           <View style={styles.sheetFooter}>
-            <TouchableOpacity style={styles.resetBtn} onPress={() => { setFilters(FILTER_DEFAULTS); closeSheet(); }}>
-              <Text style={styles.resetText}>Reset</Text>
+            <TouchableOpacity style={[styles.resetBtn, { backgroundColor: theme.colors.card, borderColor: theme.colors.border }]} onPress={() => { setFilters(FILTER_DEFAULTS); closeSheet(); }}>
+              <Text style={[styles.resetText, { color: theme.colors.textSecondary }]}>Reset All</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.applyBtn} onPress={closeSheet}>
-              <Text style={styles.applyText}>Apply</Text>
+            <TouchableOpacity style={[styles.applyBtn, { backgroundColor: theme.colors.primary }]} onPress={closeSheet}>
+              <Text style={[styles.applyText, { color: theme.colors.textDark }]}>Apply Filters</Text>
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -194,44 +253,64 @@ export default function NotesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: THEME.colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: THEME.spacing.lg, paddingTop: THEME.spacing.md, paddingBottom: 12 },
-  headerTitle: { fontSize: 26, fontWeight: '800', color: THEME.colors.textPrimary, letterSpacing: -0.5 },
-  headerSubtitle: { color: THEME.colors.textSecondary, fontSize: 13, fontWeight: '500', marginTop: 2 },
-  filterBtn: { width: 46, height: 46, borderRadius: 23, backgroundColor: THEME.colors.card, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: THEME.colors.border, position: 'relative' },
-  filterBadge: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, backgroundColor: THEME.colors.primary, justifyContent: 'center', alignItems: 'center' },
-  filterBadgeText: { color: THEME.colors.textDark, fontSize: 10, fontWeight: '800' },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: THEME.colors.card, marginHorizontal: THEME.spacing.lg, paddingHorizontal: 16, height: 52, borderRadius: THEME.borderRadius.md, marginBottom: 10, borderWidth: 1, borderColor: THEME.colors.border, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 6, elevation: 3 },
-  searchInput: { flex: 1, color: THEME.colors.textPrimary, fontSize: 15, fontWeight: '500' },
-  tabScrollView: { maxHeight: 52, marginBottom: 8 },
-  tabRow: { flexDirection: 'row', paddingHorizontal: THEME.spacing.lg, alignItems: 'center', gap: 8 },
-  tabBtn: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: THEME.borderRadius.xl, backgroundColor: THEME.colors.card, borderWidth: 1, borderColor: THEME.colors.border },
-  tabBtnActive: { backgroundColor: THEME.colors.primary, borderColor: THEME.colors.primary },
-  tabText: { color: THEME.colors.textSecondary, fontSize: 14, fontWeight: '700' },
-  // FIX: hardcoded dark color so it's always readable on lime/primary background
-  tabTextActive: { color: '#1A0A30', fontWeight: '800' },
-  list: { paddingHorizontal: THEME.spacing.lg, paddingBottom: 140 },
-  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
-  emptyTitle: { color: THEME.colors.textPrimary, fontSize: 20, fontWeight: '800', marginTop: 16, marginBottom: 8 },
-  emptySubtitle: { color: THEME.colors.textSecondary, fontSize: 15, textAlign: 'center', paddingHorizontal: 40, lineHeight: 24 },
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
-  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: THEME.colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, paddingBottom: 48, borderWidth: 1, borderColor: THEME.colors.border, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 24, elevation: 24 },
-  sheetHandle: { width: 40, height: 4, borderRadius: 2, backgroundColor: THEME.colors.border, alignSelf: 'center', marginBottom: 20 },
-  sheetTitle: { color: THEME.colors.textPrimary, fontSize: 20, fontWeight: '800', marginBottom: 20 },
-  sheetSectionLabel: { color: THEME.colors.textSecondary, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
-  chipRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
-  chip: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 999, backgroundColor: THEME.colors.cardSecondary, borderWidth: 1, borderColor: THEME.colors.border },
-  chipActive: { backgroundColor: THEME.colors.primary, borderColor: THEME.colors.primary },
-  chipText: { color: THEME.colors.textSecondary, fontWeight: '700', fontSize: 14 },
-  chipTextActive: { color: '#1A0A30', fontWeight: '800' },
-  filterRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: THEME.colors.border },
-  filterIconWrapper: { width: 36, height: 36, borderRadius: 10, backgroundColor: THEME.colors.cardSecondary, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
-  filterLabel: { flex: 1, color: THEME.colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  checkbox: { width: 26, height: 26, borderRadius: 8, borderWidth: 2, borderColor: THEME.colors.border, justifyContent: 'center', alignItems: 'center' },
-  checkboxActive: { backgroundColor: THEME.colors.primary, borderColor: THEME.colors.primary },
-  sheetFooter: { flexDirection: 'row', gap: 12, marginTop: 24 },
-  resetBtn: { flex: 1, paddingVertical: 16, borderRadius: THEME.borderRadius.md, backgroundColor: THEME.colors.cardSecondary, alignItems: 'center', borderWidth: 1, borderColor: THEME.colors.border },
-  resetText: { color: THEME.colors.textSecondary, fontWeight: '700', fontSize: 15 },
-  applyBtn: { flex: 1, paddingVertical: 16, borderRadius: THEME.borderRadius.md, backgroundColor: THEME.colors.primary, alignItems: 'center' },
-  applyText: { color: '#1A0A30', fontWeight: '800', fontSize: 15 },
+  container: { flex: 1 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16 },
+  headerTitle: { fontSize: 28, fontWeight: '900', letterSpacing: -0.8 },
+  headerMetaRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 6 },
+  headerSubtitle: { fontSize: 13, fontWeight: '700' },
+  headerDot: { width: 3, height: 3, borderRadius: 1.5, opacity: 0.5 },
+  searchToggle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  
+  searchContainer: { 
+    flexDirection: 'row', alignItems: 'center', 
+    marginHorizontal: 24, paddingHorizontal: 18, height: 54, borderRadius: 18, 
+    marginBottom: 15, borderWidth: 1,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 2 
+  },
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '600' },
+  clearSearch: { padding: 4 },
+
+  tabContainer: { marginBottom: 10 },
+  tabRow: { flexDirection: 'row', paddingHorizontal: 24, gap: 10 },
+  tabBtn: { paddingHorizontal: 22, paddingVertical: 12, borderRadius: 20, borderWidth: 1 },
+  tabText: { fontSize: 14, fontWeight: '800' },
+
+  list: { paddingHorizontal: 24, paddingBottom: 150, paddingTop: 10 },
+  
+  floatingFilter: { 
+    position: 'absolute', right: 20, bottom: 100, width: 60, height: 60, borderRadius: 30, 
+    justifyContent: 'center', alignItems: 'center', borderWidth: 1.5,
+    shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 15, elevation: 12, zIndex: 10
+  },
+  filterCountBadge: { position: 'absolute', top: -5, right: -5, width: 22, height: 22, borderRadius: 11, backgroundColor: '#FF4B6E', justifyContent: 'center', alignItems: 'center', borderWidth: 2 },
+  filterCountText: { color: '#FFFFFF', fontSize: 10, fontWeight: '900' },
+
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingTop: 100 },
+  emptyTitle: { fontSize: 22, fontWeight: '900', marginTop: 20, marginBottom: 10 },
+  emptySubtitle: { fontSize: 15, textAlign: 'center', paddingHorizontal: 50, lineHeight: 24, fontWeight: '500' },
+  
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)' },
+  sheet: { position: 'absolute', bottom: 0, left: 0, right: 0, borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, paddingBottom: 50, borderWidth: 1, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 30, elevation: 25 },
+  sheetHandle: { width: 45, height: 5, borderRadius: 2.5, backgroundColor: 'rgba(255,255,255,0.15)', alignSelf: 'center', marginBottom: 25 },
+  sheetTitle: { fontSize: 24, fontWeight: '900', marginBottom: 25, letterSpacing: -0.5 },
+  sheetSectionLabel: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 15, opacity: 0.8 },
+  chipRow: { flexDirection: 'row', gap: 12, marginBottom: 30 },
+  chip: { paddingHorizontal: 22, paddingVertical: 12, borderRadius: 15, borderWidth: 1 },
+  chipText: { fontWeight: '800', fontSize: 14 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1 },
+  filterIconWrapper: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  filterLabel: { flex: 1, fontSize: 17, fontWeight: '700' },
+  checkbox: { width: 28, height: 28, borderRadius: 10, borderWidth: 2, justifyContent: 'center', alignItems: 'center' },
+  sheetFooter: { flexDirection: 'row', gap: 15, marginTop: 35 },
+  resetBtn: { flex: 1, paddingVertical: 18, borderRadius: 18, alignItems: 'center', borderWidth: 1 },
+  resetText: { fontWeight: '800', fontSize: 16 },
+  applyBtn: { flex: 1, paddingVertical: 18, borderRadius: 18, alignItems: 'center' },
+  applyText: { fontWeight: '900', fontSize: 16 },
+
+  quickActions: { flexDirection: 'row', paddingHorizontal: 24, gap: 12, marginBottom: 20 },
+  actionCard: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 16, gap: 10, borderWidth: 1 },
+  actionCardText: { fontSize: 14, fontWeight: '800' },
 });
+
+
+

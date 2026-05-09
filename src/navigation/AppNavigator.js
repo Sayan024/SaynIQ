@@ -1,198 +1,168 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  Platform, View, Text, StyleSheet, ActivityIndicator,
+  Animated, Pressable,
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 
-import HomeScreen from '../screens/HomeScreen';
-import AddItemScreen from '../screens/AddItemScreen';
-import NotesScreen from '../screens/NotesScreen';
+import HomeScreen      from '../screens/HomeScreen';
+import AddItemScreen   from '../screens/AddItemScreen';
+import NotesScreen     from '../screens/NotesScreen';
 import PasswordsScreen from '../screens/PasswordsScreen';
 import AddPasswordScreen from '../screens/AddPasswordScreen';
-import AboutScreen from '../screens/AboutScreen';
-import AIChatScreen from '../screens/AIChatScreen';
-import OnboardingScreen from '../screens/OnboardingScreen';
-import { THEME } from '../styles/theme';
+import TasksScreen     from '../screens/TasksScreen';
+import AddTaskScreen    from '../screens/AddTaskScreen';
+import AboutScreen     from '../screens/AboutScreen';
+import AIChatScreen    from '../screens/AIChatScreen';
+import AddLinkScreen   from '../screens/AddLinkScreen';
 
-const Tab = createBottomTabNavigator();
+import { VaultContext } from '../context/VaultContext';
+
+
+const Tab   = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-const ACTIVE_COLOR   = '#D7E65A';   // lime — always visible on purple
-const INACTIVE_COLOR = 'rgba(255,255,255,0.55)'; // bright white, muted
 
-const customDarkTheme = {
-  ...DarkTheme,
-  colors: {
-    ...DarkTheme.colors,
-    background: THEME.colors.background,
-    card: THEME.colors.background,
-    text: THEME.colors.textPrimary,
-    primary: THEME.colors.primary,
-    border: THEME.colors.border,
-  },
+
+// ── Tab config ─────────────────────────────────────────────────────────────────
+const TAB_MAP = {
+  Dashboard: { active: 'home',          inactive: 'home-outline' },
+  Notes:     { active: 'document-text', inactive: 'document-text-outline' },
+  Tasks:     { active: 'list',           inactive: 'list-outline' },
+  Passwords: { active: 'key',           inactive: 'key-outline' },
+  SaynIQ:    { active: 'sparkles',      inactive: 'sparkles-outline' },
 };
 
-function TabIcon({ name, focused, label }) {
+function TabButton({ route, focused, theme }) {
+  const cfg = TAB_MAP[route.name];
+  const scale = useRef(new Animated.Value(focused ? 1 : 0.8)).current;
+  const opacity = useRef(new Animated.Value(focused ? 1 : 0.6)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: focused ? 1 : 0.8, useNativeDriver: true, tension: 50 }),
+      Animated.timing(opacity, { toValue: focused ? 1 : 0.6, duration: 200, useNativeDriver: true }),
+    ]).start();
+  }, [focused]);
+
   return (
-    <View style={[styles.iconContainer, focused && styles.iconContainerActive]}>
-      <Ionicons
-        name={name}
-        size={22}
-        color={focused ? ACTIVE_COLOR : INACTIVE_COLOR}
+    <View style={styles.tabItem}>
+      <Animated.View 
+        style={[
+          styles.activePill, 
+          { 
+            backgroundColor: focused ? `${theme.colors.primary}15` : 'transparent',
+            transform: [{ scale }]
+          }
+        ]} 
       />
-      {focused && <View style={styles.activeIndicator} />}
-      <Text style={[styles.tabLabel, focused && styles.tabLabelActive]}>
-        {label}
-      </Text>
+      <Ionicons
+        name={focused ? cfg.active : cfg.inactive}
+        size={22}
+        color={focused ? theme.colors.primary : theme.colors.textSecondary}
+      />
     </View>
   );
 }
 
 function BottomTabs() {
+  const { state } = useContext(VaultContext);
+  const theme = state.theme;
+  const insets = useSafeAreaInsets();
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused }) => {
-          const MAP = {
-            Dashboard: { active: 'home',          inactive: 'home-outline',          label: 'Home' },
-            Notes:     { active: 'document-text', inactive: 'document-text-outline', label: 'Notes' },
-            Passwords: { active: 'key',           inactive: 'key-outline',           label: 'Vault' },
-            'AI Chat': { active: 'sparkles',      inactive: 'sparkles-outline',      label: 'Copilot' },
-          };
-          const cfg = MAP[route.name];
-          return (
-            <TabIcon
-              name={focused ? cfg.active : cfg.inactive}
-              focused={focused}
-              label={cfg.label}
-            />
-          );
-        },
-        // We render label inside our custom TabIcon, so hide the native one
+        tabBarIcon: ({ focused }) => <TabButton route={route} focused={focused} theme={theme} />,
         tabBarShowLabel: false,
-        tabBarActiveTintColor:   ACTIVE_COLOR,
-        tabBarInactiveTintColor: INACTIVE_COLOR,
-        headerStyle: {
-          backgroundColor: THEME.colors.background,
-          borderBottomWidth: 1,
-          borderBottomColor: THEME.colors.border,
-          shadowOpacity: 0,
+        headerShown: false,
+        tabBarStyle: {
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 60 + insets.bottom,
+          backgroundColor: theme.colors.background + 'F8',
+          borderTopWidth: 0.5,
+          borderTopColor: theme.colors.border,
           elevation: 0,
+          paddingBottom: insets.bottom,
         },
-        headerTintColor: THEME.colors.textPrimary,
-        headerTitleStyle: { fontWeight: '700' },
-        tabBarStyle: styles.tabBar,
-        tabBarBackground: () =>
-          Platform.OS === 'ios' ? (
-            <BlurView tint="dark" intensity={90} style={StyleSheet.absoluteFill} />
-          ) : (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: 'rgba(30, 10, 60, 0.97)', borderTopWidth: 1, borderTopColor: 'rgba(215,230,90,0.12)' },
-              ]}
-            />
-          ),
       })}
     >
-      <Tab.Screen name="Dashboard" component={HomeScreen} options={{ title: 'Dashboard' }} />
+      <Tab.Screen name="Dashboard" component={HomeScreen} />
       <Tab.Screen name="Notes"     component={NotesScreen} />
+      <Tab.Screen name="Tasks"     component={TasksScreen} />
       <Tab.Screen name="Passwords" component={PasswordsScreen} />
-      <Tab.Screen name="AI Chat"   component={AIChatScreen} />
+      <Tab.Screen name="SaynIQ"    component={AIChatScreen} />
     </Tab.Navigator>
   );
 }
 
+// ── Root navigator ─────────────────────────────────────────────────────────────
 export default function AppNavigator() {
-  const [isFirstLaunch, setIsFirstLaunch] = useState(null);
+  const { state } = useContext(VaultContext);
+  const theme = state.theme;
 
-  useEffect(() => {
-    async function checkOnboarding() {
-      try {
-        const hasOnboarded = await AsyncStorage.getItem('@has_onboarded');
-        setIsFirstLaunch(hasOnboarded === null);
-      } catch {
-        setIsFirstLaunch(false);
-      }
-    }
-    checkOnboarding();
-  }, []);
-
-  if (isFirstLaunch === null) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: THEME.colors.background }}>
-        <ActivityIndicator size="large" color={THEME.colors.primary} />
-      </View>
-    );
-  }
+  const navTheme = {
+    ...DarkTheme,
+    colors: {
+      ...DarkTheme.colors,
+      background: theme.colors.background,
+      card:        theme.colors.background,
+      text:        theme.colors.textPrimary,
+      primary:     theme.colors.primary,
+      border:      theme.colors.border,
+    },
+  };
 
   return (
-    <NavigationContainer theme={customDarkTheme}>
+    <NavigationContainer theme={navTheme}>
       <Stack.Navigator
         screenOptions={{ headerShown: false, presentation: 'modal' }}
-        initialRouteName={isFirstLaunch ? 'Onboarding' : 'MainTabs'}
+        initialRouteName="MainTabs"
       >
-        <Stack.Screen name="Onboarding"   component={OnboardingScreen} />
-        <Stack.Screen name="MainTabs"     component={BottomTabs} />
-        <Stack.Screen name="AddItem"      component={AddItemScreen} />
-        <Stack.Screen name="AddPassword"  component={AddPasswordScreen} />
-        <Stack.Screen name="About"        component={AboutScreen} />
+        <Stack.Screen name="MainTabs"    component={BottomTabs} />
+        <Stack.Screen name="AddItem"     component={AddItemScreen} />
+        <Stack.Screen name="AddLink"     component={AddLinkScreen} />
+        <Stack.Screen name="AddPassword" component={AddPasswordScreen} />
+
+        <Stack.Screen name="AddTask"     component={AddTaskScreen} />
+        <Stack.Screen name="About"       component={AboutScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
 }
 
+
+
 const styles = StyleSheet.create({
-  tabBar: {
-    position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 24 : 14,
-    left: 16,
-    right: 16,
-    elevation: 0,
-    backgroundColor: 'transparent',
-    borderTopWidth: 0,
-    height: 76,
-    borderRadius: 38,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-  },
-  iconContainer: {
+  tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 12,
-    paddingHorizontal: 14,
-    paddingBottom: 4,
-    borderRadius: 22,
-    minWidth: 64,
+    width: 60,
+    height: 40,
+    marginTop: 10,
   },
-  iconContainerActive: {
-    // subtle lime-tinted glow background
-    backgroundColor: 'rgba(215, 230, 90, 0.12)',
-  },
-  activeIndicator: {
-    // tiny lime dot below the icon
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: ACTIVE_COLOR,
-    marginTop: 3,
-    marginBottom: -1,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: INACTIVE_COLOR,
-    marginTop: 2,
-    letterSpacing: 0.2,
-  },
-  tabLabelActive: {
-    color: ACTIVE_COLOR,
-    fontWeight: '800',
+  activePill: {
+    position: 'absolute',
+    width: 48,
+    height: 32,
+    borderRadius: 16,
   },
 });
+
+
+
+
+
+
+
+
+
