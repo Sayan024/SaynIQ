@@ -1,0 +1,153 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  
+  /* Default: Purple AI Theme */
+  --color-primary: #6d28d9;
+  --color-secondary: #a78bfa;
+  --color-accent: #c084fc;
+  --color-bg: #0b041a;
+  --color-surface: #160d33;
+  --color-text: #ffffff;
+  --color-text-muted: #9ca3af;
+  --gradient-main: linear-gradient(135deg, #1e0b4a 0%, #0b041a 100%);
+  --gradient-card: linear-gradient(180deg, rgba(109, 40, 217, 0.1) 0%, rgba(109, 40, 217, 0) 100%);
+}
+
+.theme-dark {
+  --color-primary: #3b82f6;
+  --color-secondary: #60a5fa;
+  --color-accent: #93c5fd;
+  --color-bg: #111827;
+  --color-surface: #1f2937;
+  --gradient-main: linear-gradient(135deg, #111827 0%, #030712 100%);
+  --gradient-card: linear-gradient(180deg, rgba(59, 130, 246, 0.05) 0%, rgba(59, 130, 246, 0) 100%);
+}
+
+.theme-midnight {
+  --color-primary: #1e3a8a;
+  --color-secondary: #3b82f6;
+  --color-accent: #60a5fa;
+  --color-bg: #020617;
+  --color-surface: #0f172a;
+  --gradient-main: linear-gradient(135deg, #0f172a 0%, #020617 100%);
+  --gradient-card: linear-gradient(180deg, rgba(30, 58, 138, 0.1) 0%, rgba(30, 58, 138, 0) 100%);
+}
+
+.theme-neon {
+  --color-primary: #d946ef;
+  --color-secondary: #f0abfc;
+  --color-accent: #f5d0fe;
+  --color-bg: #0d0111;
+  --color-surface: #1e0228;
+  --gradient-main: linear-gradient(135deg, #2e023f 0%, #0d0111 100%);
+  --gradient-card: linear-gradient(180deg, rgba(217, 70, 239, 0.1) 0%, rgba(217, 70, 239, 0) 100%);
+}
+
+.theme-emerald {
+  --color-primary: #10b981;
+  --color-secondary: #34d399;
+  --color-accent: #6ee7b7;
+  --color-bg: #022c22;
+  --color-surface: #064e3b;
+  --gradient-main: linear-gradient(135deg, #064e3b 0%, #022c22 100%);
+  --gradient-card: linear-gradient(180deg, rgba(16, 185, 129, 0.1) 0%, rgba(16, 185, 129, 0) 100%);
+}
+
+.theme-white {
+  color-scheme: light;
+  --color-primary: #6d28d9;
+  --color-secondary: #8b5cf6;
+  --color-accent: #a78bfa;
+  --color-bg: #f9fafb;
+  --color-surface: #ffffff;
+  --color-text: #111827;
+  --color-text-muted: #4b5563;
+  --gradient-main: linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%);
+  --gradient-card: linear-gradient(180deg, rgba(109, 40, 217, 0.05) 0%, rgba(109, 40, 217, 0) 100%);
+}
+
+.theme-cyber {
+  --color-primary: #00ff41;
+  --color-secondary: #008f11;
+  --color-accent: #003b00;
+  --color-bg: #000000;
+  --color-surface: #0a0a0a;
+  --gradient-main: linear-gradient(135deg, #050505 0%, #000000 100%);
+  --gradient-card: linear-gradient(180deg, rgba(0, 255, 65, 0.05) 0%, rgba(0, 255, 65, 0) 100%);
+}
+
+body {
+  margin: 0;
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  min-height: 100vh;
+  transition: background-color 0.4s cubic-bezier(0.4, 0, 0.2, 1), color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  opacity: 0.5;
+  border-radius: 10px;
+}
+
+.glass-card {
+  background: var(--color-surface);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 1.5rem;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(167, 139, 250, 0.3);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), 0 0 20px rgba(109, 40, 217, 0.1);
+  transform: translateY(-5px);
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, #ffffff 0%, var(--color-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-15px); }
+}
+
+.animate-bounce-slow {
+  animation: bounce-slow 4s ease-in-out infinite;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
