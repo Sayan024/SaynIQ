@@ -16,7 +16,8 @@ const VersionManager = () => {
     "• Improved AI responses in Finance Hub\n• Fixed background overlap on Dashboard\n• Added end-to-end push notification support\n• Performance optimizations for low-end devices"
   );
 
-  const [downloadLink, setDownloadLink] = useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+  const [androidDownloadLink, setAndroidDownloadLink] = useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+  const [iosDownloadLink, setIosDownloadLink] = useState("https://sayn-iq.vercel.app/");
 
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,8 @@ const VersionManager = () => {
           const data = snapshot.data();
           setVersions(data.versions || versions);
           setReleaseNotes(data.releaseNotes || releaseNotes);
-          setDownloadLink(data.downloadLink || downloadLink);
+          setAndroidDownloadLink(data.androidDownloadLink || data.downloadLink || androidDownloadLink);
+          setIosDownloadLink(data.iosDownloadLink || iosDownloadLink);
         }
       } catch (error) {
         console.error("Error fetching app config:", error);
@@ -48,7 +50,8 @@ const VersionManager = () => {
       await setDoc(configRef, {
         versions,
         releaseNotes,
-        downloadLink,
+        androidDownloadLink,
+        iosDownloadLink,
         updatedAt: new Date(),
         updatedBy: 'admin'
       });
@@ -130,18 +133,28 @@ const VersionManager = () => {
             Direct Download Configuration
           </h2>
           
-          <div className="space-y-4">
+          <div className="space-y-6">
              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Public APK/Download URL</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Android APK URL</label>
                 <input 
                   type="url" 
-                  value={downloadLink}
-                  onChange={(e) => setDownloadLink(e.target.value)}
-                  placeholder="https://..."
+                  value={androidDownloadLink}
+                  onChange={(e) => setAndroidDownloadLink(e.target.value)}
+                  placeholder="https://drive.google.com/..."
                   className="w-full bg-[#0b041a] border border-premium-purple/20 rounded-xl py-3 px-4 focus:outline-none focus:border-premium-purple text-sm font-mono"
                 />
              </div>
-             <p className="text-[10px] text-gray-500">This link will be used across the main website and landing pages for the "Download APK" buttons.</p>
+             <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">iOS App Store / TestFlight URL</label>
+                <input 
+                  type="url" 
+                  value={iosDownloadLink}
+                  onChange={(e) => setIosDownloadLink(e.target.value)}
+                  placeholder="https://apps.apple.com/..."
+                  className="w-full bg-[#0b041a] border border-premium-purple/20 rounded-xl py-3 px-4 focus:outline-none focus:border-premium-purple text-sm font-mono"
+                />
+             </div>
+             <p className="text-[10px] text-gray-500 italic">Separate links will be displayed on the landing page for Android and iOS users.</p>
           </div>
           
           <div className="mt-8 pt-6 border-t border-premium-purple/10">

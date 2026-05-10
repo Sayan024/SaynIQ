@@ -20,21 +20,28 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 const Landing = () => {
-  const [apkLink, setApkLink] = React.useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+  const [androidLink, setAndroidLink] = React.useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+  const [iosLink, setIosLink] = React.useState("https://sayn-iq.vercel.app/");
 
   React.useEffect(() => {
-    const fetchLink = async () => {
+    const fetchLinks = async () => {
       try {
         const configRef = doc(db, 'config', 'app');
         const snap = await getDoc(configRef);
-        if (snap.exists() && snap.data().downloadLink) {
-          setApkLink(snap.data().downloadLink);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.androidDownloadLink || data.downloadLink) {
+            setAndroidLink(data.androidDownloadLink || data.downloadLink);
+          }
+          if (data.iosDownloadLink) {
+            setIosLink(data.iosDownloadLink);
+          }
         }
       } catch (e) {
-        console.error("Failed to fetch download link", e);
+        console.error("Failed to fetch download links", e);
       }
     };
-    fetchLink();
+    fetchLinks();
   }, []);
 
   return (
@@ -87,19 +94,22 @@ const Landing = () => {
                  transition={{ delay: 0.3 }}
                  className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 pt-4"
                >
-                 <a 
-                   href={apkLink}
-                   className="bg-premium-purple hover:bg-premium-purple/90 px-8 lg:px-10 py-4 lg:py-5 rounded-2xl font-black text-lg lg:text-xl flex items-center justify-center gap-3 shadow-2xl shadow-premium-purple/20 transition-all hover:scale-105 active:scale-95 group"
-                 >
-                   <Download size={22} className="group-hover:-translate-y-1 transition-transform" />
-                   <span>Get SaynIQ</span>
-                 </a>
-                 <a 
-                   href="#features"
-                   className="bg-white/5 hover:bg-white/10 px-8 lg:px-10 py-4 lg:py-5 rounded-2xl font-black text-lg lg:text-xl border border-white/10 transition-all hover:scale-105 active:scale-95 flex items-center justify-center"
-                 >
-                   Explore Features
-                 </a>
+                  <a 
+                    href={androidLink}
+                    target="_blank"
+                    className="bg-premium-purple hover:bg-premium-purple/90 px-8 lg:px-10 py-4 lg:py-5 rounded-2xl font-black text-sm lg:text-base flex items-center justify-center gap-3 shadow-2xl shadow-premium-purple/20 transition-all hover:scale-105 active:scale-95 group"
+                  >
+                    <Smartphone size={20} className="group-hover:-translate-y-1 transition-transform" />
+                    <span>Android APK</span>
+                  </a>
+                  <a 
+                    href={iosLink}
+                    target="_blank"
+                    className="bg-white/5 hover:bg-white/10 px-8 lg:px-10 py-4 lg:py-5 rounded-2xl font-black text-sm lg:text-base border border-white/10 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group"
+                  >
+                    <Globe size={20} className="text-premium-lightPurple group-hover:-translate-y-1 transition-transform" />
+                    <span>iOS App</span>
+                  </a>
                </motion.div>
             </div>
 
@@ -280,21 +290,24 @@ const Landing = () => {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-premium-purple/10 blur-[150px] rounded-full"></div>
         <div className="max-w-3xl mx-auto space-y-10 relative z-10">
            <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-tight text-gradient">READY TO UPGRADE <br/>YOUR BRAIN?</h2>
-           <p className="text-gray-400 text-xl font-medium">Download the latest SaynIQ APK and join thousands of power users managing their digital life.</p>
-           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+           <p className="text-gray-400 text-xl font-medium">Download SaynIQ for your device and join thousands of power users managing their digital life.</p>
+           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <a 
-                href={apkLink}
-                className="bg-premium-purple hover:bg-premium-purple/90 px-12 py-6 rounded-2xl font-black text-2xl flex items-center gap-3 shadow-2xl shadow-premium-purple/20 transition-all hover:scale-105 active:scale-95 group"
+                href={androidLink}
+                target="_blank"
+                className="w-full sm:w-auto bg-premium-purple hover:bg-premium-purple/90 px-10 py-5 rounded-2xl font-black text-xl flex items-center justify-center gap-3 shadow-2xl shadow-premium-purple/20 transition-all hover:scale-105 active:scale-95 group"
               >
-                <Download size={28} />
-                <span>Download APK</span>
+                <Smartphone size={24} />
+                <span>Android APK</span>
               </a>
-              <Link 
-                to="/login"
-                className="bg-white/5 hover:bg-white/10 px-12 py-6 rounded-2xl font-black text-2xl border border-white/10 transition-all hover:scale-105 active:scale-95"
+              <a 
+                href={iosLink}
+                target="_blank"
+                className="w-full sm:w-auto bg-white/5 hover:bg-white/10 px-10 py-5 rounded-2xl font-black text-xl border border-white/10 transition-all hover:scale-105 active:scale-95 flex items-center justify-center gap-3 group"
               >
-                Admin Portal
-              </Link>
+                <Globe size={24} className="text-premium-lightPurple" />
+                <span>iOS / Web</span>
+              </a>
            </div>
         </div>
       </section>
@@ -325,7 +338,8 @@ const Landing = () => {
                 <li><a href="#home" className="hover:text-premium-lightPurple transition-colors">Home</a></li>
                 <li><a href="#features" className="hover:text-premium-lightPurple transition-colors">Features Hub</a></li>
                 <li><a href="#about" className="hover:text-premium-lightPurple transition-colors">Our Vision</a></li>
-                <li><a href={apkLink} className="hover:text-premium-lightPurple transition-colors">Download App</a></li>
+                <li><a href={androidLink} className="hover:text-premium-lightPurple transition-colors">Download Android</a></li>
+                <li><a href={iosLink} className="hover:text-premium-lightPurple transition-colors">Download iOS</a></li>
              </ul>
           </div>
 

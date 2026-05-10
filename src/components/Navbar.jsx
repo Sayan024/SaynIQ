@@ -2,7 +2,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Zap, Palette, Check, Home, Layout, Image, Info, 
-  Phone, Menu, X, Download, ShieldCheck 
+  Phone, Menu, X, Download, ShieldCheck, Smartphone, Globe
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
@@ -13,24 +13,33 @@ import { db } from '../services/firebase';
 const Navbar = () => {
   const { currentTheme, setCurrentTheme, themes } = useTheme();
   const [showThemeSelector, setShowThemeSelector] = useState(false);
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
-  const [apkLink, setApkLink] = useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+  const [androidLink, setAndroidLink] = useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+  const [iosLink, setIosLink] = useState("https://sayn-iq.vercel.app/");
+  
   const location = useLocation();
   const isLanding = location.pathname === '/';
 
   useEffect(() => {
-    const fetchLink = async () => {
+    const fetchLinks = async () => {
       try {
         const configRef = doc(db, 'config', 'app');
         const snap = await getDoc(configRef);
-        if (snap.exists() && snap.data().downloadLink) {
-          setApkLink(snap.data().downloadLink);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.androidDownloadLink || data.downloadLink) {
+            setAndroidLink(data.androidDownloadLink || data.downloadLink);
+          }
+          if (data.iosDownloadLink) {
+            setIosLink(data.iosDownloadLink);
+          }
         }
       } catch (e) {}
     };
-    fetchLink();
+    fetchLinks();
   }, []);
 
   useEffect(() => {
@@ -159,13 +168,47 @@ const Navbar = () => {
           </AnimatePresence>
         </div>
 
-        <a 
-          href={apkLink}
-          className="hidden md:flex px-6 py-3 bg-premium-purple text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-premium-purple/20 hover:bg-premium-purple/90 transition-all hover:scale-105 active:scale-95 items-center gap-2"
-        >
-          <Download size={16} />
-          <span>Get App</span>
-        </a>
+        {/* Download Dropdown */}
+        <div className="relative hidden md:block">
+          <button 
+            onClick={() => setShowDownloadMenu(!showDownloadMenu)}
+            className="flex px-6 py-3 bg-premium-purple text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl shadow-premium-purple/20 hover:bg-premium-purple/90 transition-all hover:scale-105 active:scale-95 items-center gap-2"
+          >
+            <Download size={16} />
+            <span>Get App</span>
+          </button>
+
+          <AnimatePresence>
+            {showDownloadMenu && (
+              <>
+                <div className="fixed inset-0 z-0" onClick={() => setShowDownloadMenu(false)} />
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute right-0 mt-4 w-48 p-2 bg-premium-dark/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-2xl z-10"
+                >
+                  <a 
+                    href={androidLink}
+                    target="_blank"
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all text-xs font-bold uppercase tracking-widest"
+                  >
+                    <Smartphone size={18} className="text-premium-lightPurple" />
+                    Android
+                  </a>
+                  <a 
+                    href={iosLink}
+                    target="_blank"
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 text-gray-300 hover:text-white transition-all text-xs font-bold uppercase tracking-widest border-t border-white/5"
+                  >
+                    <Globe size={18} className="text-premium-lightPurple" />
+                    iOS / Web
+                  </a>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* Mobile Menu Toggle */}
         <button 
@@ -184,7 +227,7 @@ const Navbar = () => {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed inset-0 z-40 bg-premium-dark/98 backdrop-blur-3xl lg:hidden flex flex-col pt-32 px-8 space-y-8"
+            className="fixed inset-0 z-40 bg-premium-dark/98 backdrop-blur-3xl lg:hidden flex flex-col pt-32 px-8 space-y-8 overflow-y-auto pb-12"
           >
             <div className="space-y-4">
               <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-600 mb-8">Navigation Hub</p>
@@ -205,22 +248,39 @@ const Navbar = () => {
               ))}
             </div>
 
-            <div className="pt-12 mt-auto pb-12 space-y-6">
+            <div className="pt-8 border-t border-white/5 space-y-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-gray-600 mb-4">Download SaynIQ</p>
+              <a 
+                href={androidLink}
+                className="flex items-center justify-between w-full p-6 bg-premium-purple rounded-3xl text-xl font-black text-white shadow-2xl shadow-premium-purple/20"
+              >
+                <div className="flex items-center gap-4">
+                   <Smartphone size={24} />
+                   Android APK
+                </div>
+                <Download size={20} />
+              </a>
+              <a 
+                href={iosLink}
+                className="flex items-center justify-between w-full p-6 bg-white/5 border border-white/10 rounded-3xl text-xl font-black text-gray-300"
+              >
+                <div className="flex items-center gap-4">
+                   <Globe size={24} />
+                   iOS / Web
+                </div>
+                <ArrowRight size={20} />
+              </a>
+            </div>
+
+            <div className="pt-8 space-y-6">
               <Link 
                 to="/login"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="flex items-center justify-center gap-3 w-full p-6 bg-white/5 border border-white/10 rounded-3xl text-lg font-black text-gray-300"
+                className="flex items-center justify-center gap-3 w-full p-6 border border-white/5 rounded-3xl text-sm font-black text-gray-600 uppercase tracking-widest"
               >
-                <ShieldCheck size={24} />
+                <ShieldCheck size={20} />
                 Admin Portal
               </Link>
-              <a 
-                href={apkLink}
-                className="flex items-center justify-center gap-3 w-full p-6 bg-premium-purple rounded-3xl text-xl font-black text-white shadow-2xl shadow-premium-purple/20"
-              >
-                <Download size={24} />
-                Download APK
-              </a>
             </div>
           </motion.div>
         )}
