@@ -16,6 +16,8 @@ const VersionManager = () => {
     "• Improved AI responses in Finance Hub\n• Fixed background overlap on Dashboard\n• Added end-to-end push notification support\n• Performance optimizations for low-end devices"
   );
 
+  const [downloadLink, setDownloadLink] = useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -28,6 +30,7 @@ const VersionManager = () => {
           const data = snapshot.data();
           setVersions(data.versions || versions);
           setReleaseNotes(data.releaseNotes || releaseNotes);
+          setDownloadLink(data.downloadLink || downloadLink);
         }
       } catch (error) {
         console.error("Error fetching app config:", error);
@@ -45,6 +48,7 @@ const VersionManager = () => {
       await setDoc(configRef, {
         versions,
         releaseNotes,
+        downloadLink,
         updatedAt: new Date(),
         updatedBy: 'admin'
       });
@@ -123,17 +127,36 @@ const VersionManager = () => {
         <div className="glass-card p-6 border-premium-purple/10">
           <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
             <RefreshCw size={20} className="text-premium-lightPurple" />
-            Release Notes (v{versions.latest})
+            Direct Download Configuration
           </h2>
           
-          <textarea 
-            value={releaseNotes}
-            onChange={(e) => setReleaseNotes(e.target.value)}
-            rows="8"
-            className="w-full bg-[#0b041a] border border-premium-purple/20 rounded-xl py-3 px-4 focus:outline-none focus:border-premium-purple resize-none text-sm text-gray-300 font-mono"
-          ></textarea>
+          <div className="space-y-4">
+             <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Public APK/Download URL</label>
+                <input 
+                  type="url" 
+                  value={downloadLink}
+                  onChange={(e) => setDownloadLink(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full bg-[#0b041a] border border-premium-purple/20 rounded-xl py-3 px-4 focus:outline-none focus:border-premium-purple text-sm font-mono"
+                />
+             </div>
+             <p className="text-[10px] text-gray-500">This link will be used across the main website and landing pages for the "Download APK" buttons.</p>
+          </div>
           
-          <p className="text-[10px] text-gray-500 mt-2">Release notes will be shown to users in the "Update Available" popup.</p>
+          <div className="mt-8 pt-6 border-t border-premium-purple/10">
+            <h2 className="text-lg font-bold mb-6 flex items-center gap-2">
+              <RefreshCw size={20} className="text-premium-lightPurple" />
+              Release Notes (v{versions.latest})
+            </h2>
+            
+            <textarea 
+              value={releaseNotes}
+              onChange={(e) => setReleaseNotes(e.target.value)}
+              rows="5"
+              className="w-full bg-[#0b041a] border border-premium-purple/20 rounded-xl py-3 px-4 focus:outline-none focus:border-premium-purple resize-none text-sm text-gray-300 font-mono"
+            ></textarea>
+          </div>
         </div>
       </div>
 

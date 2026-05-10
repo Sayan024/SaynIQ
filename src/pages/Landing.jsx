@@ -16,8 +16,26 @@ import aiChatImg from '../assets/screenshots/real_productivity.png';
 import productivityImg from '../assets/screenshots/real_tasks.png';
 import heroImg from '../assets/screenshots/real_knowledge.png';
 
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
+
 const Landing = () => {
-  const apkLink = "https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download&utm_source=chatgpt.com";
+  const [apkLink, setApkLink] = React.useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
+
+  React.useEffect(() => {
+    const fetchLink = async () => {
+      try {
+        const configRef = doc(db, 'config', 'app');
+        const snap = await getDoc(configRef);
+        if (snap.exists() && snap.data().downloadLink) {
+          setApkLink(snap.data().downloadLink);
+        }
+      } catch (e) {
+        console.error("Failed to fetch download link", e);
+      }
+    };
+    fetchLink();
+  }, []);
 
   return (
     <div className="min-h-screen bg-premium-dark text-white selection:bg-premium-purple/30">

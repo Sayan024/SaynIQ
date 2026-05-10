@@ -7,16 +7,31 @@ import {
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
+
 const Navbar = () => {
   const { currentTheme, setCurrentTheme, themes } = useTheme();
   const [showThemeSelector, setShowThemeSelector] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
+  const [apkLink, setApkLink] = useState("https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download");
   const location = useLocation();
   const isLanding = location.pathname === '/';
 
-  const apkLink = "https://drive.usercontent.google.com/download?id=1Ew94c5ItQtYOdYpgoasxGC68J8tBbQod&export=download&utm_source=chatgpt.com";
+  useEffect(() => {
+    const fetchLink = async () => {
+      try {
+        const configRef = doc(db, 'config', 'app');
+        const snap = await getDoc(configRef);
+        if (snap.exists() && snap.data().downloadLink) {
+          setApkLink(snap.data().downloadLink);
+        }
+      } catch (e) {}
+    };
+    fetchLink();
+  }, []);
 
   useEffect(() => {
     const handleScroll = () => {
