@@ -13,8 +13,12 @@ const initialState = {
   tasks: [],
   timeLogs: [],
   transactions: [],
+  globalPin: null,
   financePin: null,
+  isAppLocked: false,
   isBalanceUnlocked: false,
+  biometricsEnabled: false,
+  notificationsEnabled: true,
   appStreak: 1,
   loading: true,
   themeName: 'Drops Purple',
@@ -40,8 +44,16 @@ function vaultReducer(state, action) {
       return { ...state, themeName: action.payload, theme: buildTheme(action.payload) };
     case 'SET_FINANCE_PIN':
       return { ...state, financePin: action.payload };
+    case 'SET_GLOBAL_PIN':
+      return { ...state, globalPin: action.payload };
+    case 'SET_APP_LOCK':
+      return { ...state, isAppLocked: action.payload };
     case 'SET_BALANCE_UNLOCK':
       return { ...state, isBalanceUnlocked: action.payload };
+    case 'SET_BIOMETRICS':
+      return { ...state, biometricsEnabled: action.payload };
+    case 'SET_NOTIFICATIONS':
+      return { ...state, notificationsEnabled: action.payload };
     case 'ADD_ITEM':
       return { ...state, items: [action.payload, ...state.items] };
     case 'DELETE_ITEM':
@@ -107,12 +119,18 @@ export const VaultProvider = ({ children }) => {
     }, 10000);
 
     try {
-      const [items, tasks, logs, transactions, financePin, themeName, lastDate, savedStreak] = await Promise.all([
+      const [
+        items, tasks, logs, transactions, financePin, globalPin, 
+        biometricsEnabled, notificationsEnabled, themeName, lastDate, savedStreak
+      ] = await Promise.all([
         AsyncStorage.getItem('@vault_items'),
         AsyncStorage.getItem('@tasks_data'),
         AsyncStorage.getItem('@time_logs_data'),
         AsyncStorage.getItem('@finance_data'),
         AsyncStorage.getItem('@finance_pin'),
+        AsyncStorage.getItem('@global_pin'),
+        AsyncStorage.getItem('@biometrics_enabled'),
+        AsyncStorage.getItem('@notifications_enabled'),
         loadThemeName(),
         AsyncStorage.getItem('@last_open_date'),
         AsyncStorage.getItem('@app_streak')
@@ -131,6 +149,13 @@ export const VaultProvider = ({ children }) => {
       else dispatch({ type: 'SET_TRANSACTIONS', payload: [] });
 
       if (financePin) dispatch({ type: 'SET_FINANCE_PIN', payload: financePin });
+      if (globalPin) {
+        dispatch({ type: 'SET_GLOBAL_PIN', payload: globalPin });
+        dispatch({ type: 'SET_APP_LOCK', payload: true }); // Lock app if PIN exists
+      }
+      if (biometricsEnabled) dispatch({ type: 'SET_BIOMETRICS', payload: biometricsEnabled === 'true' });
+      if (notificationsEnabled !== null) dispatch({ type: 'SET_NOTIFICATIONS', payload: notificationsEnabled === 'true' });
+      else dispatch({ type: 'SET_NOTIFICATIONS', payload: true });
       
       // Streak Logic
       const today = new Date().toDateString();
@@ -166,7 +191,7 @@ export const VaultProvider = ({ children }) => {
     if (!state.loading) {
       saveData();
     }
-  }, [state.items, state.tasks, state.timeLogs, state.transactions, state.financePin]);
+  }, [state.items, state.tasks, state.timeLogs, state.transactions, state.financePin, state.globalPin, state.biometricsEnabled, state.notificationsEnabled]);
 
   const saveData = async () => {
     try {
@@ -175,7 +200,10 @@ export const VaultProvider = ({ children }) => {
         AsyncStorage.setItem('@tasks_data', JSON.stringify(state.tasks)),
         AsyncStorage.setItem('@time_logs_data', JSON.stringify(state.timeLogs)),
         AsyncStorage.setItem('@finance_data', JSON.stringify(state.transactions)),
-        AsyncStorage.setItem('@finance_pin', state.financePin || '')
+        AsyncStorage.setItem('@finance_pin', state.financePin || ''),
+        AsyncStorage.setItem('@global_pin', state.globalPin || ''),
+        AsyncStorage.setItem('@biometrics_enabled', state.biometricsEnabled ? 'true' : 'false'),
+        AsyncStorage.setItem('@notifications_enabled', state.notificationsEnabled ? 'true' : 'false')
       ]);
     } catch (e) {
       console.error("Critical: Storage Save Error", e);

@@ -9,13 +9,13 @@ const { width } = Dimensions.get('window');
 
 const StatCard = ({ title, value, icon, color, delay = 0 }) => (
   <Animated.View entering={FadeInDown.delay(delay).duration(600)} style={styles.statCardWrapper}>
-    <BlurView intensity={20} tint="light" style={[styles.statCard, { borderColor: `${color}30` }]}>
+    <View style={[styles.statCard, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
       <View style={[styles.iconBox, { backgroundColor: `${color}15` }]}>
         <Ionicons name={icon} size={16} color={color} />
       </View>
       <Text style={styles.statValue}>{value}</Text>
-      <Text style={[styles.statTitle, { color: 'rgba(255,255,255,0.5)' }]}>{title}</Text>
-    </BlurView>
+      <Text style={[styles.statTitle, { color: 'rgba(255,255,255,0.4)' }]}>{title}</Text>
+    </View>
   </Animated.View>
 );
 
@@ -94,7 +94,7 @@ export default function TaskInsights({ tasks = [], logs = [], theme }) {
       </View>
 
       <Animated.View entering={FadeInDown.delay(500)} style={styles.chartWrapper}>
-        <BlurView intensity={20} tint="dark" style={styles.chartCard}>
+        <View style={[styles.chartCard, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
           <Text style={styles.chartTitle}>Weekly Consistency</Text>
           <View style={styles.chart}>
             {stats.weeklyData.map((day, i) => (
@@ -108,7 +108,7 @@ export default function TaskInsights({ tasks = [], logs = [], theme }) {
               </View>
             ))}
           </View>
-        </BlurView>
+        </View>
       </Animated.View>
     </View>
   );
@@ -120,7 +120,6 @@ const styles = StyleSheet.create({
   disciplineCard: { 
     flex: 2, padding: 20, borderRadius: 28, 
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 15, elevation: 10
   },
   disciplineLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1 },
   disciplineValue: { fontSize: 36, fontWeight: '900', color: '#FFF', marginVertical: 4 },

@@ -1,85 +1,81 @@
-import { PermissionsAndroid, Platform } from 'react-native';
+import Sms from 'react-native-get-sms-android';
 import { parseSmsTransaction } from './smsParserService';
+import { Platform } from 'react-native';
 
 /**
- * SMS Reader Service
- * Handles permissions and fetching of device SMS messages.
+ * Enhanced SMS Reader for High-Performance Deep Scans
  */
-
-// Note: Requires react-native-get-sms-android to be installed for real device reading.
-let SmsAndroid;
-try {
-  SmsAndroid = require('react-native-get-sms-android').default;
-} catch (e) {
-  SmsAndroid = null;
-}
-
-export const requestSmsPermission = async () => {
-  if (Platform.OS === 'ios') return false;
-  
-  try {
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.READ_SMS,
-      {
-        title: "SMS Permission",
-        message: "SaynIQ needs access to your SMS to automatically track expenses locally.",
-        buttonNeutral: "Ask Me Later",
-        buttonNegative: "Cancel",
-        buttonPositive: "OK"
-      }
-    );
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
-  } catch (err) {
-    console.warn(err);
-    return false;
-  }
-};
-
-export const scanTransactionsFromSms = async (limit = 100) => {
-  if (!SmsAndroid) {
-    console.warn("react-native-get-sms-android not found. Using mock data for simulation.");
-    return simulateSmsScan();
+export const scanTransactionsFromSms = async (limit = 10000, onProgress, cancelRef) => {
+  if (Platform.OS !== 'android') {
+    return simulateSmsScan(onProgress);
   }
 
   return new Promise((resolve, reject) => {
+    // Expanded Banking & Fintech Keywords for broader Indian Bank support
     const filter = {
       box: 'inbox',
       maxCount: limit,
+      read: 1, // Only read messages already seen by user for safety
+      indexFrom: 0,
     };
 
-    SmsAndroid.list(
+    const keywords = [
+      'credited', 'debited', 'spent', 'transaction', 'bank', 
+      'vpa', 'upi', 'paytm', 'amazon pay', 'otp', 'a/c', 
+      'balance', 'available', 'limit', 'withdrawal', 'purchase',
+      'inward', 'outward', 'sent to', 'received from', 'txn'
+    ];
+
+    Sms.list(
       JSON.stringify(filter),
-      (fail) => {
-        console.error("Failed to list SMS:", fail);
-        reject(fail);
-      },
+      (fail) => reject(new Error('Failed to access SMS inbox: ' + fail)),
       (count, smsList) => {
         const messages = JSON.parse(smsList);
-        const transactions = messages
-          .map(msg => parseSmsTransaction(msg.body))
-          .filter(Boolean);
+        const transactions = [];
+        
+        for (let i = 0; i < messages.length; i++) {
+          if (cancelRef && cancelRef.cancelled) break;
+
+          const msg = messages[i];
+          const body = msg.body.toLowerCase();
+
+          // Performance Pre-Filter
+          const isBanking = keywords.some(k => body.includes(k));
+          
+          if (isBanking) {
+            const parsed = parseSmsTransaction(msg.body);
+            if (parsed && !body.includes('otp')) { // Security: Skip OTPs
+              transactions.push({
+                ...parsed,
+                raw: msg.body,
+                date: new Date(msg.date).toISOString(),
+                id: `sms-${msg._id}-${msg.date}`
+              });
+            }
+          }
+
+          if (onProgress && i % 50 === 0) {
+            onProgress(i, messages.length);
+          }
+        }
         resolve(transactions);
       }
     );
   });
 };
 
-/**
- * Simulates a scan for testing purposes in Expo Go or non-native environments.
- */
-const simulateSmsScan = async () => {
-  const mockMessages = [
-    "ICICI Bank Acct XX530 debited for Rs 2300.00 on 09-May-26; DEEPAK KUMAR credited. UPI:612955893883.",
-    "HDFC Bank: Rs 500 debited at Amazon on 10-May-26. Avl Bal: Rs 12000.00",
-    "Your A/c XX123 is credited with Rs. 10000.00 on 09-May-26 from Salary.",
-    "vpa deepak@okaxis debited by 150.00",
-    "OTP for login is 123456. Do not share.",
-    "Hey, how are you doing today?",
+const simulateSmsScan = async (onProgress) => {
+  const mockData = [
+    { merchant: 'Amazon India', amount: 1299, type: 'Expense', bank: 'HDFC', date: new Date().toISOString() },
+    { merchant: 'Swiggy Order', amount: 450, type: 'Expense', bank: 'SBI', date: new Date().toISOString() },
+    { merchant: 'Salary Credit', amount: 85000, type: 'Income', bank: 'ICICI', date: new Date().toISOString() },
+    { merchant: 'Zomato', amount: 320, type: 'Expense', bank: 'AXIS', date: new Date().toISOString() }
   ];
 
-  await new Promise(r => setTimeout(r, 1500)); // Simulate delay
-
-  return mockMessages
-    .map(body => parseSmsTransaction(body))
-    .filter(Boolean);
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 50));
+    if (onProgress) onProgress(i, 20);
+  }
+  
+  return mockData.map((d, i) => ({ ...d, id: `sim-${Date.now()}-${i}`, raw: `Mock SMS ${i}` }));
 };

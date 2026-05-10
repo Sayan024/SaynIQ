@@ -9,16 +9,16 @@ const { width } = Dimensions.get('window');
 
 const Widget = ({ title, value, icon, color, subtitle, delay = 0 }) => (
   <Animated.View entering={FadeInDown.delay(delay).duration(600)} style={styles.widgetWrapper}>
-    <BlurView intensity={20} tint="light" style={[styles.widget, { borderColor: `${color}40`, backgroundColor: `${color}10` }]}>
+    <View style={[styles.widget, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
       <View style={styles.widgetHeader}>
-        <View style={[styles.iconBox, { backgroundColor: `${color}20` }]}>
+        <View style={[styles.iconBox, { backgroundColor: `${color}15` }]}>
           <Ionicons name={icon} size={18} color={color} />
         </View>
-        <Text style={[styles.widgetTitle, { color: 'rgba(255,255,255,0.6)' }]}>{title}</Text>
+        <Text style={[styles.widgetTitle, { color: 'rgba(255,255,255,0.5)' }]}>{title}</Text>
       </View>
       <Text style={styles.widgetValue}>{value}</Text>
-      {subtitle && <Text style={[styles.widgetSubtitle, { color: 'rgba(255,255,255,0.4)' }]}>{subtitle}</Text>}
-    </BlurView>
+      {subtitle && <Text style={[styles.widgetSubtitle, { color: 'rgba(255,255,255,0.3)' }]}>{subtitle}</Text>}
+    </View>
   </Animated.View>
 );
 
@@ -122,7 +122,7 @@ export default function OverviewDashboard({ items = [], tasks = [], streak = 0, 
       </View>
 
       <Animated.View entering={FadeInDown.delay(400)} style={styles.fullWidgetWrapper}>
-        <BlurView intensity={20} tint="dark" style={[styles.largeWidget, { borderColor: 'rgba(255,255,255,0.1)' }]}>
+        <View style={[styles.largeWidget, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
           <Text style={styles.largeWidgetTitle}>Learning Momentum</Text>
           <View style={styles.chartContainer}>
             {stats.weeklyActivity.map((val, i) => (
@@ -138,11 +138,11 @@ export default function OverviewDashboard({ items = [], tasks = [], streak = 0, 
               </View>
             ))}
           </View>
-        </BlurView>
+        </View>
       </Animated.View>
 
       <View style={styles.footerRow}>
-        <Animated.View entering={FadeInDown.delay(500)} style={[styles.smallCard, { backgroundColor: `${theme.colors.card}50` }]}>
+        <Animated.View entering={FadeInDown.delay(500)} style={[styles.smallCard, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
           <Text style={styles.cardHeader}>Top Categories</Text>
           <View style={styles.catList}>
             {stats.topCategories.map(([cat, count], i) => (
@@ -156,7 +156,7 @@ export default function OverviewDashboard({ items = [], tasks = [], streak = 0, 
           </View>
         </Animated.View>
 
-        <Animated.View entering={FadeInDown.delay(600)} style={[styles.smallCard, { backgroundColor: `${theme.colors.card}50` }]}>
+        <Animated.View entering={FadeInDown.delay(600)} style={[styles.smallCard, { backgroundColor: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.05)' }]}>
           <Text style={styles.cardHeader}>Task Progress</Text>
           <View style={styles.progressBox}>
              <ProgressBar label="Overall" progress={stats.taskProgress} color="#4ADE80" />

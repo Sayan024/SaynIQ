@@ -160,6 +160,39 @@ export default function ItemCard({ item }) {
               </TouchableOpacity>
             )}
           </View>
+        ) : item.type === 'note' && item.noteType === 'list' ? (
+          <View style={styles.listContainer}>
+            {item.listItems?.slice(0, isNoteExpanded ? undefined : 5).map((listItem, idx) => (
+              <View key={listItem.id || idx} style={styles.listItem}>
+                <TouchableOpacity 
+                  disabled={item.listType !== 'check'}
+                  onPress={() => {
+                    const newList = item.listItems.map(i => i.id === listItem.id ? { ...i, completed: !i.completed } : i);
+                    editItem(item.id, { listItems: newList });
+                  }}
+                >
+                  <Ionicons 
+                    name={item.listType === 'check' ? (listItem.completed ? 'checkbox' : 'square-outline') : (item.listType === 'number' ? 'ellipse' : 'remove')} 
+                    size={18} 
+                    color={listItem.completed ? theme.colors.primary : theme.colors.textSecondary} 
+                    style={{ marginRight: 10, marginTop: 2 }}
+                  />
+                </TouchableOpacity>
+                <Text style={[
+                  styles.listItemText, 
+                  { color: listItem.completed ? theme.colors.textSecondary : theme.colors.textPrimary },
+                  listItem.completed && item.listType === 'check' && { textDecorationLine: 'line-through' }
+                ]}>
+                  {item.listType === 'number' ? `${idx + 1}. ` : ''}{listItem.text}
+                </Text>
+              </View>
+            ))}
+            {(item.listItems?.length > 5) && (
+              <TouchableOpacity onPress={() => setIsNoteExpanded(!isNoteExpanded)} style={styles.readMoreBtn}>
+                <Text style={[styles.readMoreText, { color: theme.colors.highlight }]}>{isNoteExpanded ? 'Show Less' : `Show ${item.listItems.length - 5} More Items`}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         ) : (
           <View>
             <Text style={[styles.notePreview, { color: theme.colors.textSecondary }]} numberOfLines={isNoteExpanded ? undefined : 3}>
@@ -228,7 +261,7 @@ export default function ItemCard({ item }) {
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 28, padding: 24, marginBottom: 16, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, elevation: 4, borderWidth: 1 },
+  card: { borderRadius: 28, padding: 24, marginBottom: 16, borderWidth: 1 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   headerLeft: { flexDirection: 'row', alignItems: 'center' },
   iconWrapper: { padding: 8, borderRadius: 12, marginRight: 10 },
@@ -265,6 +298,10 @@ const styles = StyleSheet.create({
   alertBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5 },
   reminderBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 0.5 },
   badgeText: { fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
+
+  listContainer: { marginTop: 8 },
+  listItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
+  listItemText: { fontSize: 16, lineHeight: 22, flex: 1 },
 });
 
 

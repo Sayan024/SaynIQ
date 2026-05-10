@@ -1,6 +1,7 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import * as Linking from 'expo-linking';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { _atob } from './src/services/shareService';
@@ -9,10 +10,13 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { VaultProvider, VaultContext } from './src/context/VaultContext';
 import LoadingScreen from './src/screens/LoadingScreen';
 import OnboardingScreen from './src/screens/OnboardingScreen';
+import { registerForPushNotificationsAsync, checkAppVersion } from './src/services/notificationService';
+
 
 function AppContent() {
   const { state, addItem } = useContext(VaultContext);
   const [showOnboarding, setShowOnboarding] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   useEffect(() => {
     AsyncStorage.getItem('@onboarding_completed')
@@ -20,8 +24,35 @@ function AppContent() {
         setShowOnboarding(value !== 'true');
       })
       .catch(() => {
-        setShowOnboarding(false); // Fallback to app if storage fails
+        setShowOnboarding(false);
       });
+
+    // Initialize Notifications & Version Check
+    registerForPushNotificationsAsync();
+    checkAppVersion('1.0.0');
+
+    // Listener for when a notification is received while the app is foregrounded
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
+      setNotification(notification);
+      console.log('Notification Received:', notification);
+    });
+
+    // Listener for when a user interacts with a notification
+    const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
+      const url = response.notification.request.content.data?.url;
+      
+      if (url) {
+        console.log('Opening deep link:', url);
+        Linking.openURL(url.toString()).catch(err => {
+          console.error('Failed to open URL:', err);
+        });
+      }
+    });
+
+    return () => {
+      notificationListener.remove();
+      responseListener.remove();
+    };
   }, []);
 
   // ── Deep Link Handling ────────────────────────────────────────────────────────

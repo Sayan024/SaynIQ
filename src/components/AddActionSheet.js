@@ -41,7 +41,7 @@ export default function AddActionSheet({ visible, onClose, onAction, theme }) {
             { transform: [{ translateY }] }
           ]}
         >
-          <BlurView intensity={80} tint="dark" style={[styles.sheet, { borderColor: theme.colors.border }]}>
+          <BlurView intensity={90} tint="dark" style={[styles.sheet, { backgroundColor: `${theme.colors.card}F0`, borderColor: theme.colors.border }]}>
             <View style={styles.handle} />
             <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Quick Actions</Text>
             <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>What would you like to capture?</Text>
@@ -50,7 +50,7 @@ export default function AddActionSheet({ visible, onClose, onAction, theme }) {
               {ACTIONS.map(action => (
                 <TouchableOpacity 
                   key={action.id} 
-                  style={[styles.actionBtn, { backgroundColor: 'rgba(255,255,255,0.05)' }]}
+                  style={[styles.actionBtn, { backgroundColor: `${theme.colors.cardSecondary}80` }]}
                   onPress={() => { onClose(); onAction(action.screen); }}
                 >
                   <View style={[styles.iconBox, { backgroundColor: `${action.color}20` }]}>
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 14, fontWeight: '600', textAlign: 'center', marginBottom: 32, opacity: 0.7 },
   actionGrid: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   actionBtn: { 
-    flex: 1, alignItems: 'center', paddingVertical: 20, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)'
+    flex: 1, alignItems: 'center', paddingVertical: 20, borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)'
   },
   iconBox: { width: 54, height: 54, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   actionLabel: { fontSize: 13, fontWeight: '800' },
