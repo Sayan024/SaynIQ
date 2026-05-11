@@ -39,11 +39,13 @@ export default async function handler(req, res) {
     sound: options.sound || 'default',
     ttl: parseInt(options.ttl) || 0,
     channelId: options.channelId || 'default',
+    image: notification.imageUrl || null,
     data: { 
       ...options.data,
       imageUrl: notification.imageUrl,
       url: notification.deepLink 
     },
+    mutableContent: true,
     _displayInForeground: true,
     priority: 'high',
   }));
