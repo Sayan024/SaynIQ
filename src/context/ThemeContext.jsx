@@ -8,7 +8,6 @@ export const themes = [
   { id: 'midnight', name: 'Midnight', color: '#1e3a8a', className: 'theme-midnight' },
   { id: 'neon', name: 'Neon Cyber', color: '#d946ef', className: 'theme-neon' },
   { id: 'emerald', name: 'Emerald', color: '#10b981', className: 'theme-emerald' },
-  { id: 'white', name: 'Clean Light', color: '#6d28d9', className: 'theme-white' },
   { id: 'cyber', name: 'Matrix', color: '#00ff41', className: 'theme-cyber' },
 ];
 
