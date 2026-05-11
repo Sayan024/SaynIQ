@@ -2,10 +2,8 @@ import axios from 'axios';
 import { db } from './firebase';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
-const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
-
 /**
- * Sends push notifications via Expo's Push API
+ * Sends push notifications via internal backend API
  * @param {Object} notification - The notification payload
  * @param {string[]} tokens - Array of Expo Push Tokens
  * @param {Object} options - Advanced options (ttl, badge, sound, etc)
@@ -14,6 +12,7 @@ export const sendExpoNotification = async (notification, tokens, options = {}) =
   if (!tokens || tokens.length === 0) return { status: 'no_tokens' };
 
   const chunks = [];
+  // Expo handles up to 100 tokens per request
   for (let i = 0; i < tokens.length; i += 100) {
     chunks.push(tokens.slice(i, i + 100));
   }
@@ -21,40 +20,28 @@ export const sendExpoNotification = async (notification, tokens, options = {}) =
   const results = [];
 
   for (const chunk of chunks) {
-    const messages = chunk.map(token => ({
-      to: token,
-      title: notification.title,
-      body: notification.message,
-      subtitle: options.subtitle || '',
-      badge: parseInt(options.badge) || 0,
-      sound: options.sound || 'default',
-      ttl: parseInt(options.ttl) || 0,
-      channelId: options.channelId || 'default',
-      data: { 
-        ...options.data,
-        imageUrl: notification.imageUrl,
-        url: notification.deepLink // Synced with app listener
-      },
-      _displayInForeground: true,
-      priority: 'high',
-    }));
-
     try {
-      // Using a CORS proxy to bypass browser security limits
-      const PROXY_URL = 'https://corsproxy.io/?';
-      const response = await axios.post(PROXY_URL + encodeURIComponent(EXPO_PUSH_URL), messages, {
+      // Calling our own backend API instead of Expo directly or via proxy
+      const response = await axios.post('/api/send-notification', {
+        tokens: chunk,
+        notification,
+        options,
+        accessToken: options.accessToken // Pass the token if provided as an override
+      }, {
         headers: {
-          'Accept': 'application/json',
-          'Accept-encoding': 'gzip, deflate',
-          'Content-Type': 'application/json',
-          ...(options.accessToken && { 'Authorization': `Bearer ${options.accessToken}` })
+          'Content-Type': 'application/json'
         },
       });
 
-      results.push(...response.data.data);
+      if (response.data && response.data.data) {
+        results.push(...response.data.data);
+      }
     } catch (error) {
       console.error('Push Request Failed:', error.response?.data || error.message);
-      throw error;
+      
+      // More descriptive error for the UI
+      const errorMessage = error.response?.data?.details?.error || error.response?.data?.error || error.message;
+      throw new Error(`Backend API Error: ${errorMessage}`);
     }
   }
 

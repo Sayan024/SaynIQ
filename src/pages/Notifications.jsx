@@ -17,7 +17,7 @@ const Notifications = () => {
     target: 'all', // all, active, version, specific
     targetVersion: '1.0.2',
     specificToken: '',
-    accessToken: '',
+    accessToken: '', // Added back as optional override
     ttl: '3600',
     badge: '1',
     sound: 'default',
@@ -83,7 +83,7 @@ const Notifications = () => {
       }
 
       const options = {
-        accessToken: formData.accessToken,
+        accessToken: formData.accessToken, // Optional override
         ttl: formData.ttl,
         badge: formData.badge,
         sound: formData.sound,
@@ -92,7 +92,7 @@ const Notifications = () => {
         data: JSON.parse(formData.jsonData || '{}')
       };
 
-      await sendExpoNotification(
+      const results = await sendExpoNotification(
         { 
           title: formData.title, 
           message: formData.message, 
@@ -103,6 +103,10 @@ const Notifications = () => {
         options
       );
 
+      // Analyze results for better logging
+      const successCount = results.filter(r => r.status === 'ok').length;
+      const failCount = results.length - successCount;
+
       // Save log to Firestore
       const logEntry = {
         timestamp: new Date(),
@@ -110,10 +114,13 @@ const Notifications = () => {
         message: formData.message,
         target: formData.target,
         count: tokens.length,
-        status: 'Sent',
+        status: failCount === 0 ? 'Sent' : `Partial (${successCount}/${results.length})`,
         metadata: {
           version: formData.targetVersion,
-          hasImage: !!formData.imageUrl
+          hasImage: !!formData.imageUrl,
+          successCount,
+          failCount,
+          results: results.slice(0, 10) // Store first 10 for debugging
         }
       };
       
@@ -123,7 +130,7 @@ const Notifications = () => {
       fetchLogs(); // Refresh history
     } catch (error) {
       console.error(error);
-      setStatus('error');
+      setStatus({ type: 'error', message: error.message });
       
       // Log failure too
       try {
@@ -206,8 +213,16 @@ const Notifications = () => {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
-                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5"><Key size={12} /> Access Token</label>
-                   <input type="password" value={formData.accessToken} onChange={(e) => setFormData({...formData, accessToken: e.target.value})} className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-4 focus:border-premium-purple outline-none text-sm" placeholder="Expo Access Token" />
+                   <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5">
+                     <Key size={12} /> Access Token <span className="text-[10px] text-gray-500 lowercase font-normal ml-1">(Optional)</span>
+                   </label>
+                   <input 
+                     type="password" 
+                     value={formData.accessToken} 
+                     onChange={(e) => setFormData({...formData, accessToken: e.target.value})} 
+                     className="w-full bg-black/40 border border-white/10 rounded-xl py-2.5 px-4 focus:border-premium-purple outline-none text-sm" 
+                     placeholder="Override Default Token" 
+                   />
                 </div>
                 <div>
                    <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1.5"><Clock size={12} /> TTL (Seconds)</label>
@@ -298,10 +313,13 @@ const Notifications = () => {
                   <span>Notification sequence initiated successfully!</span>
                 </div>
               )}
-              {status === 'error' && (
+              {status?.type === 'error' && (
                 <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl flex items-center gap-3 animate-fade-in">
                   <AlertCircle size={20} />
-                  <span>Failed to send notification. Check logs below.</span>
+                  <div className="flex flex-col">
+                    <span className="font-bold">Transmission Error</span>
+                    <span className="text-xs opacity-80">{status.message}</span>
+                  </div>
                 </div>
               )}
 
