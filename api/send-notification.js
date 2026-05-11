@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     data: { 
       ...options.data,
       imageUrl: notification.imageUrl,
-      url: notification.deepLink || 'https://sayn-iq.vercel.app/'
+      url: notification.deepLink || 'https://sayn-iq.vercel.app/?utm_source=chatgpt.com'
     },
     mutableContent: true,
     _displayInForeground: true,
