@@ -35,15 +35,12 @@ export const NotificationProvider = ({ children }) => {
       }
 
       snapshot.docChanges().forEach((change) => {
+        const userData = change.doc.data();
+        const userId = change.doc.id;
+
         if (change.type === 'added') {
-          const userData = change.doc.data();
-          
-          // Check if this is a "new" user (joined after startTime)
-          // If we don't have a joinedAt, we might get some false positives on initial sync 
-          // if we aren't careful, but isInitialized helps.
-          
           const newNotification = {
-            id: change.doc.id,
+            id: userId + '_added',
             title: 'New User Joined! 🚀',
             message: `${userData.deviceName || 'A user'} just joined the SaynIQ ecosystem from ${userData.os || 'an unknown device'}.`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -55,6 +52,21 @@ export const NotificationProvider = ({ children }) => {
           setNotifications(prev => [newNotification, ...prev].slice(0, 20));
           setUnreadCount(prev => prev + 1);
           setToast(newNotification);
+        } else if (change.type === 'modified') {
+          // If the pushToken or deviceName changed, notify the admin
+          const modifiedNotification = {
+            id: userId + '_modified_' + Date.now(),
+            title: 'Device Updated 📱',
+            message: `${userData.deviceName || 'A user'} updated their device info or push token.`,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            type: 'update',
+            read: false,
+            timestamp: new Date()
+          };
+
+          setNotifications(prev => [modifiedNotification, ...prev].slice(0, 20));
+          setUnreadCount(prev => prev + 1);
+          setToast(modifiedNotification);
         }
       });
     });
