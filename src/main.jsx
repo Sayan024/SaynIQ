@@ -4,12 +4,18 @@ import App from './App.jsx'
 import './index.css'
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider } from './context/ThemeContext'
+import { WebAuthProvider } from './context/WebAuthContext'
+import { WebVaultProvider } from './context/WebVaultContext'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
       <ThemeProvider>
-        <App />
+        <WebAuthProvider>
+          <WebVaultProvider>
+            <App />
+          </WebVaultProvider>
+        </WebAuthProvider>
       </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>,

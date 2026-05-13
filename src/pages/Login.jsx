@@ -4,9 +4,11 @@ import { ShieldCheck, Eye, EyeOff, Loader2, ArrowLeft } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { useWebAuth } from '../context/WebAuthContext';
 
 const Login = ({ onLogin }) => {
   const navigate = useNavigate();
+  const { loginAdmin } = useWebAuth();
   const [adminId, setAdminId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,7 +22,8 @@ const Login = ({ onLogin }) => {
 
     try {
       // 1. Check local fallback first for dev convenience
-      if (adminId === 'admin' && password === 'sayanadmin123') {
+      if (adminId === 'admin' && password === 'admin123') {
+        loginAdmin();
         onLogin(true);
         navigate('/admin');
         return;
@@ -31,6 +34,7 @@ const Login = ({ onLogin }) => {
       const snapshot = await getDoc(adminRef);
 
       if (snapshot.exists() && snapshot.data().password === password) {
+        loginAdmin();
         onLogin(true);
         navigate('/admin');
       } else {
@@ -58,13 +62,13 @@ const Login = ({ onLogin }) => {
       >
         <div className="mb-8">
           <Link 
-            to="/" 
+            to="/login" 
             className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-all group"
           >
             <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center group-hover:bg-premium-purple/20 transition-colors">
               <ArrowLeft size={16} />
             </div>
-            <span className="text-sm font-medium">Back to Website</span>
+            <span className="text-sm font-medium">User Portal</span>
           </Link>
         </div>
 

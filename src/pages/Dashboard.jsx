@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Users, Bell, Zap, UserCheck, Download, Smartphone, Monitor } from 'lucide-react';
+import { Users, Bell, Zap, UserCheck, Download, Smartphone, Monitor, MessageCircle, AlertCircle, CheckCircle } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -117,7 +117,7 @@ const Dashboard = () => {
           title="Total Registered Users" 
           value={stats?.totalUsers?.toLocaleString() || "0"} 
           icon={Users} 
-          trend={stats?.totalUsers > 0 ? "Real-time" : "No users"} 
+          trend="Real-time" 
           color="purple" 
         />
         <StatCard 
@@ -135,12 +135,43 @@ const Dashboard = () => {
           color="orange" 
         />
         <StatCard 
-          title="Active Today" 
+          title="Daily Active Users" 
           value={stats?.activeToday?.toLocaleString() || "0"} 
           icon={UserCheck} 
           trend="Last 24h" 
           color="green" 
         />
+      </div>
+
+      {/* Support Statistics Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="glass-card p-6 border-white/5 flex items-center gap-6">
+           <div className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center text-theme-accent">
+              <MessageCircle size={24} />
+           </div>
+           <div>
+              <p className="text-[10px] font-black text-theme-textSecondary uppercase tracking-widest mb-1">Total Support Tickets</p>
+              <h3 className="text-2xl font-black">{stats?.totalTickets || 0}</h3>
+           </div>
+        </div>
+        <div className="glass-card p-6 border-white/5 flex items-center gap-6">
+           <div className="w-12 h-12 bg-theme-danger/10 rounded-2xl flex items-center justify-center text-theme-danger">
+              <AlertCircle size={24} />
+           </div>
+           <div>
+              <p className="text-[10px] font-black text-theme-textSecondary uppercase tracking-widest mb-1">Pending Resolution</p>
+              <h3 className="text-2xl font-black text-theme-danger">{stats?.openTicketsCount || 0}</h3>
+           </div>
+        </div>
+        <div className="glass-card p-6 border-white/5 flex items-center gap-6">
+           <div className="w-12 h-12 bg-theme-success/10 rounded-2xl flex items-center justify-center text-theme-success">
+              <CheckCircle size={24} />
+           </div>
+           <div>
+              <p className="text-[10px] font-black text-theme-textSecondary uppercase tracking-widest mb-1">Resolved Successfully</p>
+              <h3 className="text-2xl font-black text-theme-success">{stats?.resolvedTicketsCount || 0}</h3>
+           </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

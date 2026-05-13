@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Smartphone,
   ExternalLink,
+  Sparkles,
+  MessageCircle,
   X
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -20,6 +22,8 @@ const Sidebar = ({ onLogout, isOpen, onClose }) => {
     { name: 'Users', icon: Users, path: '/admin/users' },
     { name: 'Analytics', icon: BarChart3, path: '/admin/analytics' },
     { name: 'App Version', icon: Smartphone, path: '/admin/version' },
+    { name: 'Feature Ads', icon: Sparkles, path: '/admin/features' },
+    { name: 'Support', icon: MessageCircle, path: '/admin/support' },
   ];
 
   return (

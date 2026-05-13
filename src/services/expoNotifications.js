@@ -111,6 +111,20 @@ export const fetchRealAnalytics = async () => {
       return (now - lastActiveDate) < (24 * 60 * 60 * 1000);
     }).length;
 
+    // Fetch support tickets
+    let totalTickets = 0;
+    let openTicketsCount = 0;
+    let resolvedTicketsCount = 0;
+    try {
+      const ticketsRef = collection(db, 'support_tickets');
+      const ticketsSnapshot = await getDocs(ticketsRef);
+      totalTickets = ticketsSnapshot.size;
+      openTicketsCount = ticketsSnapshot.docs.filter(d => d.data().status === 'Open').length;
+      resolvedTicketsCount = ticketsSnapshot.docs.filter(d => d.data().status === 'Resolved').length;
+    } catch (e) {
+      console.warn('Support tickets collection not found or inaccessible');
+    }
+
     return {
       totalUsers,
       totalNotifications,
@@ -118,6 +132,9 @@ export const fetchRealAnalytics = async () => {
       androidCount,
       otherCount: totalUsers - iosCount - androidCount,
       activeToday,
+      totalTickets,
+      openTicketsCount,
+      resolvedTicketsCount,
       users: users.slice(0, 10),
       allUsers: users // For more detailed charts in Analytics
     };

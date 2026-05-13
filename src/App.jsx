@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useState } from 'react';
-import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Notifications from './pages/Notifications';
@@ -9,7 +8,27 @@ import Analytics from './pages/Analytics';
 import VersionManager from './pages/VersionManager';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+
+// Web App Imports
+import UserLogin from './pages/webapp/UserLogin';
+import WebLayout from './components/webapp/WebLayout';
+import WebDashboard from './pages/webapp/Dashboard';
+import NotesHub from './pages/webapp/NotesHub';
+import Library from './pages/webapp/Library';
+import FinanceHub from './pages/webapp/FinanceHub';
+import TaskManager from './pages/webapp/TaskManager';
+import Reminders from './pages/webapp/Reminders';
+import Settings from './pages/webapp/Settings';
+import Profile from './pages/webapp/Profile';
+import AuthModal from './components/webapp/AuthModal';
+import BootLoader from './components/webapp/BootLoader';
+import Home from './pages/webapp/Home';
+import Support from './pages/webapp/Support';
+import FeatureAds from './pages/FeatureAds';
+import SupportAdmin from './pages/SupportAdmin';
+
 import { NotificationProvider, useNotifications } from './context/NotificationContext';
+import { useWebAuth } from './context/WebAuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, X, Zap } from 'lucide-react';
 
@@ -48,39 +67,71 @@ const ToastManager = () => {
 };
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    localStorage.getItem('admin_auth') === 'true'
-  );
+  const { 
+    isAdminAuthenticated, 
+    loginAdmin, 
+    logoutAdmin,
+    logout: logoutUser 
+  } = useWebAuth();
 
-  const handleLogin = (status) => {
-    setIsAuthenticated(status);
-    localStorage.setItem('admin_auth', status);
+  const handleAdminLogin = (status) => {
+    if (status) loginAdmin();
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('admin_auth');
+  const handleAdminLogout = () => {
+    logoutAdmin();
   };
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
+  const [isBooting, setIsBooting] = useState(true);
+
+  if (isBooting) {
+    return <BootLoader onComplete={() => setIsBooting(false)} />;
+  }
+
   return (
+    <>
     <Routes>
-      {/* Public Landing Page */}
-      <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login onLogin={handleLogin} />} />
+      {/* User Login */}
+      <Route path="/login" element={<UserLogin />} />
+
+      {/* Public User Web App Routes (Root Level) */}
+      <Route 
+        path="/*" 
+        element={
+          <Routes>
+            <Route element={<WebLayout onLogout={logoutUser} />}>
+              <Route path="dashboard" element={<WebDashboard />} />
+              <Route path="notes" element={<NotesHub />} />
+              <Route path="library" element={<Library />} />
+              <Route path="finance" element={<FinanceHub />} />
+              <Route path="tasks" element={<TaskManager />} />
+              <Route path="reminders" element={<Reminders />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="profile" element={<Profile />} />
+              <Route path="support" element={<Support />} />
+              <Route path="/" element={<Home />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        }
+      />
+
+      {/* Admin Login */}
+      <Route path="/admin-login" element={<Login onLogin={handleAdminLogin} />} />
 
       {/* Protected Admin Routes */}
       <Route
         path="/admin/*"
         element={
-          isAuthenticated ? (
+          isAdminAuthenticated ? (
             <NotificationProvider>
               <div className="flex h-screen bg-premium-dark text-white overflow-hidden relative">
                 <Sidebar 
-                  onLogout={handleLogout} 
+                  onLogout={handleAdminLogout} 
                   isOpen={isSidebarOpen} 
                   onClose={() => setIsSidebarOpen(false)} 
                 />
@@ -93,6 +144,8 @@ function App() {
                       <Route path="/users" element={<Users />} />
                       <Route path="/analytics" element={<Analytics />} />
                       <Route path="/version" element={<VersionManager />} />
+                      <Route path="/features" element={<FeatureAds />} />
+                      <Route path="/support" element={<SupportAdmin />} />
                       <Route path="*" element={<Navigate to="/admin" replace />} />
                     </Routes>
                   </main>
@@ -101,14 +154,13 @@ function App() {
               <ToastManager />
             </NotificationProvider>
           ) : (
-            <Navigate to="/login" replace />
+            <Navigate to="/admin-login" replace />
           )
         }
       />
-
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <AuthModal />
+    </>
   );
 }
 
